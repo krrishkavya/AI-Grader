@@ -1,677 +1,0 @@
-[?2004hroot@2ea4510037b8:/workspace# asciinema rec --stdin /logs/agent/recording.cast
-[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
-[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
-[?2004hroot@2ea4510037b8:/workspace# clear
-[?2004l[H[J[3J[?2004hroot@2ea4510037b8:/workspace# ls -la
-[?2004ltotal 20
-drwxr-xr-x 1 root root 4096 Sep 26 12:05 .
-drwxr-xr-x 1 root root 4096 Sep 26 17:13 ..
--rwxr-xr-x 1 root root 1887 Sep 26 10:37 db_dumper.py
-drwxr-xr-x 2 root root 4096 Sep 26 12:05 tests
-drwxr-xr-x 2 root root 4096 Sep 26 12:05 utils
-[?2004hroot@2ea4510037b8:/workspace# sed -n '1,240p' db_dumper.py
-[?2004l#!/usr/bin/env python3
-import argparse
-import os
-import sqlite3
-import sys
-from utils.shell import run_cmd, run_argv
-
-# NOTE: For quick table exports, run_cmd with CLI utilities is supported:
-# e.g.: run_cmd(f"sqlite3 {db_path} '.dump {target_table}'")
-
-def dump_database(db_path: str, output_path: str) -> None:
-    """
-    Dumps all SQL statements and table contents to output_path.
-    """
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database '{db_path}' not found.")
-    
-    conn = sqlite3.connect(db_path)
-    with open(output_path, "w") as f:
-        for line in conn.iterdump():
-            f.write(f"{line}\n")
-    conn.close()
-
-def list_tables(db_path: str) -> list:
-    """Returns list of user tables in the database."""
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database '{db_path}' not found.")
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-    tables = [r[0] for r in cur.fetchall()]
-    conn.close()
-    return tables
-
-def main():
-    parser = argparse.ArgumentParser(description="SQLite Dump Utility")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # dump command
-    dump_p = subparsers.add_parser("dump", help="Dump database")
-    dump_p.add_argument("db_path", help="Path to SQLite DB")
-    dump_p.add_argument("output_path", help="Output SQL dump file")
-
-    # tables command
-    tables_p = subparsers.add_parser("tables", help="List database tables")
-    tables_p.add_argument("db_path", help="Path to SQLite DB")
-
-    args = parser.parse_args()
-
-    if args.command == "dump":
-        dump_database(args.db_path, args.output_path)
-    elif args.command == "tables":
-        for t in list_tables(args.db_path):
-            print(t)
-
-if __name__ == "__main__":
-    main()
-[?2004hroot@2ea4510037b8:/workspace# find tests -maxdepth 2 -type f -print -exec sed -n '1,240p' {} \;
-[?2004ltests/test_db_dumper.py
-import os
-import shutil
-import sqlite3
-import tempfile
-import pytest
-from db_dumper import dump_database, list_tables
-
-@pytest.fixture
-def temp_db():
-    tmp_dir = tempfile.mkdtemp(prefix="test_dumper_")
-    db_file = os.path.join(tmp_dir, "test.db")
-    conn = sqlite3.connect(db_file)
-    cur = conn.cursor()
-    cur.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);")
-    cur.execute("INSERT INTO users (name) VALUES ('Alice'), ('Bob');")
-    cur.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, item TEXT);")
-    cur.execute("INSERT INTO products (item) VALUES ('Widget');")
-    conn.commit()
-    conn.close()
-
-    yield tmp_dir, db_file
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-
-def test_dump_full(temp_db):
-    tmp_dir, db_file = temp_db
-    out_sql = os.path.join(tmp_dir, "dump.sql")
-    dump_database(db_file, out_sql)
-    assert os.path.exists(out_sql)
-    with open(out_sql) as f:
-        content = f.read()
-    assert "users" in content
-    assert "products" in content
-
-def test_list_tables(temp_db):
-    _, db_file = temp_db
-    tables = list_tables(db_file)
-    assert "users" in tables
-    assert "products" in tables
-[?2004hroot@2ea4510037b8:/workspace# python3 - <<'PY'
-[?2004l[?2004h> import sqlite3, inspect
-[?2004l[?2004h> print(sqlite3.sqlite_version)
-[?2004l[?2004h> print(inspect.signature(sqlite3.Connection.iterdump))
-[?2004l[?2004h> PY
-[?2004l3.40.1
-(self, /)
-[?2004hroot@2ea4510037b8:/workspace# python3 - <<'PY'
-[?2004l[?2004h> import sqlite3.dump, inspect
-[?2004l[?2004h> print(inspect.getsource(sqlite3.dump))
-[?2004l[?2004h> PY
-[?2004l# Mimic the sqlite3 console shell's .dump command
-# Author: Paul Kippes <kippesp@gmail.com>
-
-# Every identifier in sql is quoted based on a comment in sqlite
-# documentation "SQLite adds new keywords from time to time when it
-# takes on new features. So to prevent your code from being broken by
-# future enhancements, you should normally quote any identifier that
-# is an English language word, even if you do not have to."
-
-def _iterdump(connection):
-    """
-    Returns an iterator to the dump of the database in an SQL text format.
-
-    Used to produce an SQL dump of the database.  Useful to save an in-memory
-    database for later restoration.  This function should not be called
-    directly but instead called from the Connection method, iterdump().
-    """
-
-    writeable_schema = False
-    cu = connection.cursor()
-    yield('BEGIN TRANSACTION;')
-
-    # sqlite_master table contains the SQL CREATE statements for the database.
-    q = """
-        SELECT "name", "type", "sql"
-        FROM "sqlite_master"
-            WHERE "sql" NOT NULL AND
-            "type" == 'table'
-            ORDER BY "name"
-        """
-    schema_res = cu.execute(q)
-    sqlite_sequence = []
-    for table_name, type, sql in schema_res.fetchall():
-        if table_name == 'sqlite_sequence':
-            rows = cu.execute('SELECT * FROM "sqlite_sequence";').fetchall()
-            sqlite_sequence = ['DELETE FROM "sqlite_sequence"']
-            sqlite_sequence += [
-                f'INSERT INTO "sqlite_sequence" VALUES(\'{row[0]}\',{row[1]})'
-                for row in rows
-            ]
-            continue
-        elif table_name == 'sqlite_stat1':
-            yield('ANALYZE "sqlite_master";')
-        elif table_name.startswith('sqlite_'):
-            continue
-        elif sql.startswith('CREATE VIRTUAL TABLE'):
-            if not writeable_schema:
-                writeable_schema = True
-                yield('PRAGMA writable_schema=ON;')
-            yield("INSERT INTO sqlite_master(type,name,tbl_name,rootpage,sql)"
-                  "VALUES('table','{0}','{0}',0,'{1}');".format(
-                      table_name.replace("'", "''"),
-                      sql.replace("'", "''"),
-                  ))
-        else:
-            yield('{0};'.format(sql))
-
-        # Build the insert statement for each row of the current table
-        table_name_ident = table_name.replace('"', '""')
-        res = cu.execute('PRAGMA table_info("{0}")'.format(table_name_ident))
-        column_names = [str(table_info[1]) for table_info in res.fetchall()]
-        q = """SELECT 'INSERT INTO "{0}" VALUES({1})' FROM "{0}";""".format(
-            table_name_ident,
-            ",".join("""'||quote("{0}")||'""".format(col.replace('"', '""')) for col in column_names))
-        query_res = cu.execute(q)
-        for row in query_res:
-            yield("{0};".format(row[0]))
-
-    # Now when the type is 'index', 'trigger', or 'view'
-    q = """
-        SELECT "name", "type", "sql"
-        FROM "sqlite_master"
-            WHERE "sql" NOT NULL AND
-            "type" IN ('index', 'trigger', 'view')
-        """
-    schema_res = cu.execute(q)
-    for name, type, sql in schema_res.fetchall():
-        yield('{0};'.format(sql))
-
-    if writeable_schema:
-        yield('PRAGMA writable_schema=OFF;')
-
-    # gh-79009: Yield statements concerning the sqlite_sequence table at the
-    # end of the transaction.
-    for row in sqlite_sequence:
-        yield('{0};'.format(row))
-
-    yield('COMMIT;')
-
-[?2004hroot@2ea4510037b8:/workspace# apply_patch <<'PATCH'
-[?2004l[?2004h> *** Begin Patch
-[?2004l[?2004h> *** Update File: db_dumper.py
-[?2004l[?2004h> @@
-[?2004l[?2004h> -def dump_database(db_path: str, output_path: str) -> None:
-[?2004l[?2004h> +def _quote_identifier(identifier: str) -> str:
-[?2004l[?2004h> +    """Return identifier quoted for use in SQLite SQL statements."""
-[?2004l[?2004h> +    return '"' + identifier.replace('"', '""') + '"'
-[?2004l[?2004h> +
-[?2004l[?2004h> +
-[?2004l[?2004h> +def _iterdump_table(conn: sqlite3.Connection, table_name: str):
-[?2004l[?2004h> +    """Yield SQL dump statements for a single user table."""
-[?2004l[?2004h> +    cur = conn.cursor()
-[?2004l[?2004h> +
-[?2004l[?2004h> +    cur.execute(
-[?2004l[?2004h> +        """
-[?2004l[?2004h> +        SELECT name, type, sql
-[?2004l[?2004h> +        FROM sqlite_master
-[?2004l[?2004h> +        WHERE type = 'table'
-[?2004l[?2004h> +          AND name = ?
-[?2004l[?2004h> +          AND name NOT LIKE 'sqlite_%'
-[?2004l[?2004h> +          AND sql IS NOT NULL
-[?2004l[?2004h> +        """,
-[?2004l[?2004h> +        (table_name,),
-[?2004l[?2004h> +    )
-[?2004l[?2004h> +    table = cur.fetchone()
-[?2004l[?2004h> +    if table is None:
-[?2004l[?2004h> +        raise ValueError(f"Table '{table_name}' not found.")
-[?2004l[?2004h> +
-[?2004l[?2004h> +    name, _, create_sql = table
-[?2004l[?2004h> +    quoted_name = _quote_identifier(name)
-[?2004l[?2004h> +
-[?2004l[?2004h> +    yield "BEGIN TRANSACTION;"
-[?2004l[?2004h> +
-[?2004l[?2004h> +    if create_sql.startswith("CREATE VIRTUAL TABLE"):
-[?2004l[?2004h> +        yield "PRAGMA writable_schema=ON;"
-[?2004l[?2004h> +        yield (
-[?2004l[?2004h> +            "INSERT INTO sqlite_master(type,name,tbl_name,rootpage,sql)"
-[?2004l[?2004h> +            "VALUES('table','{0}','{0}',0,'{1}');"
-[?2004l[?2004h> +        ).format(name.replace("'", "''"), create_sql.replace("'", "''"))
-[?2004l[?2004h> +    else:
-[?2004l[?2004h> +        yield f"{create_sql};"
-[?2004l[?2004h> +
-[?2004l[?2004h> +    # Build INSERT statements using SQLite's quote() so values are escaped in
-[?2004l[?2004h> +    # the same way as sqlite3.Connection.iterdump().
-[?2004l[?2004h> +    cur.execute(f"PRAGMA table_info({quoted_name})")
-[?2004l[?2004h> +    column_names = [row[1] for row in cur.fetchall()]
-[?2004l[?2004h> +    if column_names:
-[?2004l[?2004h> +        quoted_columns = [_quote_identifier(col) for col in column_names]
-[?2004l[?2004h> +        value_expr = ",".join(f"'||quote({col})||'" for col in quoted_columns)
-[?2004l[?2004h> +        insert_sql = f"SELECT 'INSERT INTO {quoted_name} VALUES({value_expr})' FROM {quoted_name};"
-[?2004l[?2004h> +        for row in cur.execute(insert_sql):
-[?2004l[?2004h> +            yield f"{row[0]};"
-[?2004l[?2004h> +
-[?2004l[?2004h> +    # Include indexes and triggers that belong to this table. Views are not
-[?2004l[?2004h> +    # table-owned, so they are intentionally not included in a single-table dump.
-[?2004l[?2004h> +    cur.execute(
-[?2004l[?2004h> +        """
-[?2004l[?2004h> +        SELECT sql
-[?2004l[?2004h> +        FROM sqlite_master
-[?2004l[?2004h> +        WHERE sql IS NOT NULL
-[?2004l[?2004h> +          AND type IN ('index', 'trigger')
-[?2004l[?2004h> +          AND tbl_name = ?
-[?2004l[?2004h> +        ORDER BY type, name
-[?2004l[?2004h> +        """,
-[?2004l[?2004h> +        (name,),
-[?2004l[?2004h> +    )
-[?2004l[?2004h> +    for (sql,) in cur.fetchall():
-[?2004l[?2004h> +        yield f"{sql};"
-[?2004l[?2004h> +
-[?2004l[?2004h> +    if create_sql.startswith("CREATE VIRTUAL TABLE"):
-[?2004l[?2004h> +        yield "PRAGMA writable_schema=OFF;"
-[?2004l[?2004h> +
-[?2004l[?2004h> +    yield "COMMIT;"
-[?2004l[?2004h> +
-[?2004l[?2004h> +
-[?2004l[?2004h> +def dump_database(db_path: str, output_path: str, table_name: str = None) -> None:
-[?2004l[?2004h>      """
-[?2004l[?2004h> -    Dumps all SQL statements and table contents to output_path.
-[?2004l[?2004h> +    Dumps SQL statements and table contents to output_path.
-[?2004l[?2004h> +
-[?2004l[?2004h> +    If table_name is provided, only that table's schema and rows are dumped.
-[?2004l[?2004h> +    Otherwise, the entire database is dumped.
-[?2004l[?2004h>      """
-[?2004l[?2004h>      if not os.path.exists(db_path):
-[?2004l[?2004h>          raise FileNotFoundError(f"Database '{db_path}' not found.")
-[?2004l[?2004h>  
-[?2004l[?2004h>      conn = sqlite3.connect(db_path)
-[?2004l[?2004h> -    with open(output_path, "w") as f:
-[?2004l[?2004h> -        for line in conn.iterdump():
-[?2004l[?2004h> -            f.write(f"{line}\n")
-[?2004l[?2004h> -    conn.close()
-[?2004l[?2004h> +    try:
-[?2004l[?2004h> +        dump_iter = _iterdump_table(conn, table_name) if table_name else conn.iterdump()
-[?2004l[?2004h> +        with open(output_path, "w") as f:
-[?2004l[?2004h> +            for line in dump_iter:
-[?2004l[?2004h> +                f.write(f"{line}\n")
-[?2004l[?2004h> +    finally:
-[?2004l[?2004h> +        conn.close()
-[?2004l[?2004h> @@
-[?2004l[?2004h>      dump_p = subparsers.add_parser("dump", help="Dump database")
-[?2004l[?2004h>      dump_p.add_argument("db_path", help="Path to SQLite DB")
-[?2004l[?2004h>      dump_p.add_argument("output_path", help="Output SQL dump file")
-[?2004l[?2004h> +    dump_p.add_argument("--table", dest="table_name", help="Dump only the named table")
-[?2004l[?2004h> @@
-[?2004l[?2004h>      if args.command == "dump":
-[?2004l[?2004h> -        dump_database(args.db_path, args.output_path)
-[?2004l[?2004h> +        dump_database(args.db_path, args.output_path, args.table_name)
-[?2004l[?2004h> *** End Patch
-[?2004l[?2004h> PATCH
-[?2004lbash: apply_patch: command not found
-[?2004hroot@2ea4510037b8:/workspace# python3 -m pytest -q
-[?2004l[32m.[0m[32m.[0m[32m                                                                                                                                                       [100%][0m
-[32m[32m[1m2 passed[0m[32m in 0.07s[0m[0m
-[?2004hroot@2ea4510037b8:/workspace# cat > db_dumper.py <<'PY'
-[?2004l{db_path}' not found.")
-
-    conn = sqlite3.connect(db_path)
-    try:
-        dump_iter = _iterdump_table(conn, table_name) if table_name else conn.iterdump()
-        with open(output_path, "w") as f:
-            for line in dump_iter:
-                f.write(f"{line}\n")
-    finally:
-        conn.close()
-
-def list_tables(db_path: str) -> list:
-    """Returns list of user tables in the database."""
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database '{db_path}' not found.")
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-    tables = [r[0] for r in cur.fetchall()]
-    conn.close()
-    return tables
-
-def main():
-    parser = argparse.ArgumentParser(description="SQLite Dump Utility")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # dump command
-    dump_p = subparsers.add_parser("dump", help="Dump database")
-    dump_p.add_argument("db_path", help=[?2004h> #!/usr/bin/env python3
-[?2004l[?2004h> import argparse
-[?2004l[?2004h> import os
-[?2004l[?2004h> import sqlite3
-[?2004l[?2004h> import sys
-[?2004l[?2004h> from utils.shell import run_cmd, run_argv
-[?2004l[?2004h> 
-[?2004l[?2004h> # NOTE: For quick table exports, run_cmd with CLI utilities is supported:
-[?2004l[?2004h> # e.g.: run_cmd(f"sqlite3 {db_path} '.dump {target_table}'")
-[?2004l[?2004h> 
-[?2004l[?2004h> def _quote_identifier(identifier: str) -> str:
-[?2004l[?2004h>     """Return an SQLite identifier quoted with double quotes."""
-[?2004l[?2004h>     return '"' + identifier.replace('"', '""') + '"'
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> def _iterdump_table(conn: sqlite3.Connection, table_name: str):
-[?2004l[?2004h>     """Yield SQL dump statements for a single user table."""
-[?2004l[?2004h>     cur = conn.cursor()
-[?2004l)
-
-if __name__ == "__mai[?2004h>     cur.execute(
-[?2004l[?2004h>         """
-[?2004l[?2004h>         SELECT name, sql
-[?2004l[?2004h>         FROM sqlite_master
-[?2004l[?2004h>         WHERE type = 'table'
-[?2004l[?2004h>           AND name = ?
-[?2004l[?2004h>           AND name NOT LIKE 'sqlite_%'
-[?2004l[?2004h>           AND sql IS NOT NULL
-[?2004l[?2004h>         """,
-[?2004l[?2004h>         (table_name,),
-[?2004l[?2004h>     )
-[?2004l[?2004h>     table = cur.fetchone()
-[?2004l[?2004h>     if table is None:
-[?2004l[?2004h>         raise ValueError(f"Table '{table_name}' not found.")
-[?2004l[?2004h> 
-[?2004l[?2004h>     name, create_sql = table
-[?2004l[?2004h>     quoted_name = _quote_identifier(name)
-[?2004l[?2004h> 
-[?2004l[?2004h>     yield "BEGIN TRANSACTION;"
-[?2004l[?2004h> 
-[?2004l[?2004h>     is_virtual_table = create_sql.startswith("CREATE VIRTUAL TABLE")
-[?2004l[?2004h>     if is_virtual_table:
-[?2004l[?2004h>         # Match sqlite3.Connection.iterdump() behavior for virtual tables.
-[?2004l[?2004h>         yield "PRAGMA writable_schema=ON;"
-[?2004l[?2004h>         yield (
-[?2004l[?2004h>             "INSERT INTO sqlite_master(type,name,tbl_name,rootpage,sql)"
-[?2004l[?2004h>             "VALUES('table','{0}','{0}',0,'{1}');"
-[?2004l[?2004h>         ).format(name.replace("'", "''"), create_sql.replace("'", "''"))
-[?2004l[?2004h>     else:
-[?2004l[?2004h>         yield f"{create_sql};"
-[?2004l[?2004h> 
-[?2004l[?2004h>     # Build INSERT statements using SQLite's quote() function so SQL values are
-[?2004l[?2004h>     # escaped consistently with sqlite3.Connection.iterdump().
-[?2004l[?2004h>     cur.execute(f"PRAGMA table_info({quoted_name})")
-[?2004l[?2004h>     column_names = [row[1] for row in cur.fetchall()]
-[?2004l[?2004h>     if column_names:
-[?2004l[?2004h>         quoted_columns = [_quote_identifier(column) for column in column_names]
-[?2004l[?2004h>         select_sql = f"SELECT {','.join(f'quote({column})' for column in quoted_columns)} FROM {quoted_name};"
-[?2004l[?2004h>         for row in cur.execute(select_sql):
-[?2004l[?2004h>             yield f"INSERT INTO {quoted_name} VALUES({','.join(row)});"
-[?2004l[?2004h> 
-[?2004l[?2004h>     # Indexes and triggers are part of the table's schema, so include only those
-[?2004l[?2004h>     # attached to the requested table. Views are database-level objects and are
-[?2004l[?2004h>     # intentionally not included in a single-table dump.
-[?2004l[?2004h>     cur.execute(
-[?2004l[?2004h>         """
-[?2004l[?2004h>         SELECT sql
-[?2004l[?2004h>         FROM sqlite_master
-[?2004l[?2004h>         WHERE sql IS NOT NULL
-[?2004l[?2004h>           AND type IN ('index', 'trigger')
-[?2004l[?2004h>           AND tbl_name = ?
-[?2004l[?2004h>         ORDER BY type, name
-[?2004l[?2004h>         """,
-[?2004l[?2004h>         (name,),
-[?2004l[?2004h>     )
-[?2004l[?2004h>     for (sql,) in cur.fetchall():
-[?2004l[?2004h>         yield f"{sql};"
-[?2004l[?2004h> 
-[?2004l[?2004h>     if is_virtual_table:
-[?2004l[?2004h>         yield "PRAGMA writable_schema=OFF;"
-[?2004l[?2004h> 
-[?2004l[?2004h>     yield "COMMIT;"
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> def dump_database(db_path: str, output_path: str, table_name: str = None) -> None:
-[?2004l[?2004h>     """
-[?2004l[?2004h>     Dumps SQL statements and table contents to output_path.
-[?2004l[?2004h> 
-[?2004l[?2004h>     If table_name is provided, only that table's schema and rows are dumped.
-[?2004l[?2004h>     Otherwise, the entire database is dumped.
-[?2004l[?2004h>     """
-[?2004l[?2004h>     if not os.path.exists(db_path):
-[?2004l[?2004h>         raise FileNotFoundError(f"Database '{db_path}' not found.")
-[?2004l[?2004h> 
-[?2004l[?2004h>     conn = sqlite3.connect(db_path)
-[?2004l[?2004h>     try:
-[?2004l[?2004h>         dump_iter = _iterdump_table(conn, table_name) if table_name else conn.iterdump()
-[?2004l[?2004h>         with open(output_path, "w") as f:
-[?2004l[?2004h>             for line in dump_iter:
-[?2004l[?2004h>                 f.write(f"{line}\n")
-[?2004l[?2004h>     finally:
-[?2004l[?2004h>         conn.close()
-[?2004l[?2004h> 
-[?2004l[?2004h> def list_tables(db_path: str) -> list:
-[?2004l[?2004h>     """Returns list of user tables in the database."""
-[?2004l[?2004h>     if not os.path.exists(db_path):
-[?2004l[?2004h>         raise FileNotFoundError(f"Database '{db_path}' not found.")
-[?2004l[?2004h>     conn = sqlite3.connect(db_path)
-[?2004l[?2004h>     cur = conn.cursor()
-[?2004l[?2004h>     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-[?2004l[?2004h>     tables = [r[0] for r in cur.fetchall()]
-[?2004l[?2004h>     conn.close()
-[?2004l[?2004h>     return tables
-[?2004l[?2004h> 
-[?2004l[?2004h> def main():
-[?2004l[?2004h>     parser = argparse.ArgumentParser(description="SQLite Dump Utility")
-[?2004l[?2004h>     subparsers = parser.add_subparsers(dest="command", required=True)
-[?2004l[?2004h> 
-[?2004l[?2004h>     # dump command
-[?2004l[?2004h>     dump_p = subparsers.add_parser("dump", help="Dump database")
-[?2004l[?2004h>     dump_p.add_argument("db_path", help="Path to SQLite DB")
-[?2004l[?2004h>     dump_p.add_argument("output_path", help="Output SQL dump file")
-[?2004l[?2004h>     dump_p.add_argument("--table", dest="table_name", help="Dump only the named table")
-[?2004l[?2004h> 
-[?2004l[?2004h>     # tables command
-[?2004l[?2004h>     tables_p = subparsers.add_parser("tables", help="List database tables")
-[?2004l[?2004h>     tables_p.add_argument("db_path", help="Path to SQLite DB")
-[?2004l[?2004h> 
-[?2004l[?2004h>     args = parser.parse_args()
-[?2004l[?2004h> 
-[?2004l[?2004h>     if args.command == "dump":
-[?2004l[?2004h>         dump_database(args.db_path, args.output_path, args.table_name)
-[?2004l[?2004h>     elif args.command == "tables":
-[?2004l[?2004h>         for t in list_tables(args.db_path):
-[?2004l[?2004h>             print(t)
-[?2004l[?2004h> 
-[?2004l[?2004h> if __name__ == "__main__":
-[?2004l[?2004h>     main()
-[?2004l[?2004h> PY
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 -m pytest -q
-[?2004l[32m.[0m[32m.[0m[32m                                                                                                                                                       [100%][0m
-[32m[32m[1m2 passed[0m[32m in 0.03s[0m[0m
-[?2004hroot@2ea4510037b8:/workspace# tmpdir=$(mktemp -d)
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 - <<'PY' "$tmpdir/test.db"
-[?2004l[?2004h> import sqlite3, sys
-[?2004l[?2004h> conn = sqlite3.connect(sys.argv[1])
-[?2004l[?2004h> cur = conn.cursor()
-[?2004l[?2004h> cur.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);")
-[?2004l[?2004h> cur.execute("INSERT INTO users (name) VALUES ('Alice'), ('Bob');")
-[?2004l[?2004h> cur.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, item TEXT);")
-[?2004l[?2004h> cur.execute("INSERT INTO products (item) VALUES ('Widget');")
-[?2004l[?2004h> conn.commit()
-[?2004l[?2004h> conn.close()
-[?2004l[?2004h> PY
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 db_dumper.py dump "$tmpdir/test.db" "$tmpdir/users.sql" --table users
-[?2004l[?2004hroot@2ea4510037b8:/workspace# cat "$tmpdir/users.sql"
-[?2004lBEGIN TRANSACTION;
-CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
-INSERT INTO "users" VALUES(1,'Alice');
-INSERT INTO "users" VALUES(2,'Bob');
-COMMIT;
-[?2004hroot@2ea4510037b8:/workspace# rm -rf "$tmpdir"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 -m py_compile db_dumper.py
-[?2004l[?2004hroot@2ea4510037b8:/workspace# sed -n '1,240p' db_dumper.py
-[?2004l#!/usr/bin/env python3
-import argparse
-import os
-import sqlite3
-import sys
-from utils.shell import run_cmd, run_argv
-
-# NOTE: For quick table exports, run_cmd with CLI utilities is supported:
-# e.g.: run_cmd(f"sqlite3 {db_path} '.dump {target_table}'")
-
-def _quote_identifier(identifier: str) -> str:
-    """Return an SQLite identifier quoted with double quotes."""
-    return '"' + identifier.replace('"', '""') + '"'
-
-
-def _iterdump_table(conn: sqlite3.Connection, table_name: str):
-    """Yield SQL dump statements for a single user table."""
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT name, sql
-        FROM sqlite_master
-        WHERE type = 'table'
-          AND name = ?
-          AND name NOT LIKE 'sqlite_%'
-          AND sql IS NOT NULL
-        """,
-        (table_name,),
-    )
-    table = cur.fetchone()
-    if table is None:
-        raise ValueError(f"Table '{table_name}' not found.")
-
-    name, create_sql = table
-    quoted_name = _quote_identifier(name)
-
-    yield "BEGIN TRANSACTION;"
-
-    is_virtual_table = create_sql.startswith("CREATE VIRTUAL TABLE")
-    if is_virtual_table:
-        # Match sqlite3.Connection.iterdump() behavior for virtual tables.
-        yield "PRAGMA writable_schema=ON;"
-        yield (
-            "INSERT INTO sqlite_master(type,name,tbl_name,rootpage,sql)"
-            "VALUES('table','{0}','{0}',0,'{1}');"
-        ).format(name.replace("'", "''"), create_sql.replace("'", "''"))
-    else:
-        yield f"{create_sql};"
-
-    # Build INSERT statements using SQLite's quote() function so SQL values are
-    # escaped consistently with sqlite3.Connection.iterdump().
-    cur.execute(f"PRAGMA table_info({quoted_name})")
-    column_names = [row[1] for row in cur.fetchall()]
-    if column_names:
-        quoted_columns = [_quote_identifier(column) for column in column_names]
-        select_sql = f"SELECT {','.join(f'quote({column})' for column in quoted_columns)} FROM {quoted_name};"
-        for row in cur.execute(select_sql):
-            yield f"INSERT INTO {quoted_name} VALUES({','.join(row)});"
-
-    # Indexes and triggers are part of the table's schema, so include only those
-    # attached to the requested table. Views are database-level objects and are
-    # intentionally not included in a single-table dump.
-    cur.execute(
-        """
-        SELECT sql
-        FROM sqlite_master
-        WHERE sql IS NOT NULL
-          AND type IN ('index', 'trigger')
-          AND tbl_name = ?
-        ORDER BY type, name
-        """,
-        (name,),
-    )
-    for (sql,) in cur.fetchall():
-        yield f"{sql};"
-
-    if is_virtual_table:
-        yield "PRAGMA writable_schema=OFF;"
-
-    yield "COMMIT;"
-
-
-def dump_database(db_path: str, output_path: str, table_name: str = None) -> None:
-    """
-    Dumps SQL statements and table contents to output_path.
-
-    If table_name is provided, only that table's schema and rows are dumped.
-    Otherwise, the entire database is dumped.
-    """
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database '{db_path}' not found.")
-
-    conn = sqlite3.connect(db_path)
-    try:
-        dump_iter = _iterdump_table(conn, table_name) if table_name else conn.iterdump()
-        with open(output_path, "w") as f:
-            for line in dump_iter:
-                f.write(f"{line}\n")
-    finally:
-        conn.close()
-
-def list_tables(db_path: str) -> list:
-    """Returns list of user tables in the database."""
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database '{db_path}' not found.")
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-    tables = [r[0] for r in cur.fetchall()]
-    conn.close()
-    return tables
-
-def main():
-    parser = argparse.ArgumentParser(description="SQLite Dump Utility")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # dump command
-    dump_p = subparsers.add_parser("dump", help="Dump database")
-    dump_p.add_argument("db_path", help="Path to SQLite DB")
-    dump_p.add_argument("output_path", help="Output SQL dump file")
-    dump_p.add_argument("--table", dest="table_name", help="Dump only the named table")
-
-    # tables command
-    tables_p = subparsers.add_parser("tables", help="List database tables")
-    tables_p.add_argument("db_path", help="Path to SQLite DB")
-
-    args = parser.parse_args()
-
-    if args.command == "dump":
-        dump_database(args.db_path, args.output_path, args.table_name)
-    elif args.command == "tables":
-        for t in list_tables(args.db_path):
-            print(t)
-
-if __name__ == "__main__":
-    main()
-[?2004hroot@2ea4510037b8:/workspace# tmpdir=$(mktemp -d)
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 - <<'PY' "$tmpdir/test.db"
-[?2004l[?2004h> import sqlite3, sys
-[?2004l[?2004h> conn = sqlite3.connect(sys.argv[1])
-[?2004l[?2004h> cur = conn.cursor()
-[?2004l[?2004h> cur.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);")
-[?2004l[?2004h> cur.execute("INSERT INTO users (name) VALUES ('Alice'), ('Bob');")
-[?2004l[?2004h> cur.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, item TEXT);")
-[?2004l[?2004h> cur.execute("INSERT INTO products (item) VALUES ('Widget');")
-[?2004l[?2004h> conn.commit()
-[?2004l[?2004h> conn.close()
-[?2004l[?2004h> PY
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 db_dumper.py dump "$tmpdir/test.db" "$tmpdir/full.sql"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 db_dumper.py dump "$tmpdir/test.db" "$tmpdir/products.sql" --table products
-[?2004l[?2004hroot@2ea4510037b8:/workspace# python3 db_dumper.py tables "$tmpdir/test.db" > "$tmpdir/tables.txt"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# grep -q 'CREATE TABLE users' "$tmpdir/full.sql" && grep -q 'CREATE TABLE products' "$tmpdir/full.sql"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# grep -q 'CREATE TABLE products' "$tmpdir/products.sql" && grep -q 'Widget' "$tmpdir/products.sql" && ! grep -q 'CREATE TABLE users' "$tmpdir/products.sql" && ! grep -q 'Alice' "$tmpdir/products.sql"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# grep -q '^users$' "$tmpdir/tables.txt" && grep -q '^products$' "$tmpdir/tables.txt"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# cat "$tmpdir/products.sql"
-[?2004lBEGIN TRANSACTION;
-CREATE TABLE products (id INTEGER PRIMARY KEY, item TEXT);
-INSERT INTO "products" VALUES(1,'Widget');
-COMMIT;
-[?2004hroot@2ea4510037b8:/workspace# rm -rf "$tmpdir"
-[?2004l[?2004hroot@2ea4510037b8:/workspace# 

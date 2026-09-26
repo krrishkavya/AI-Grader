@@ -1,0 +1,463 @@
+[?2004hroot@980a43d9847e:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@980a43d9847e:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@980a43d9847e:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 23:05 .
+drwxr-xr-x 1 root root  4096 Sep 26 23:25 ..
+-rwxr-xr-x 1 root root  1727 Sep 26 18:40 init_db.py
+-rw-r--r-- 1 root root 16384 Sep 26 23:05 inventory.db
+-rwxr-xr-x 1 root root  3133 Sep 26 23:01 inventory_cli.py
+drwxr-xr-x 2 root root  4096 Sep 26 23:05 tests
+[?2004hroot@980a43d9847e:/workspace# sed -n '1,240p' inventory_cli.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
+
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
+
+    sql = _build_inventory_query(base)
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_facilities() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT warehouse_id FROM inventory WHERE is_damaged = 0 ORDER BY warehouse_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["warehouse_id"] for r in rows]
+
+def check_reorder(threshold: int = 25) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sku, warehouse_id, quantity FROM inventory WHERE is_damaged = 0 AND quantity <= ?", (threshold,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Warehouse Inventory CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+
+    subparsers.add_parser("facilities", help="List all warehouse facilities")
+
+    reord_p = subparsers.add_parser("reorder", help="Check items needing reorder")
+    reord_p.add_argument("--threshold", type=int, default=25, help="Stock threshold")
+
+    args = parser.parse_args()
+
+    if args.command == "lookup":
+        items = lookup_stock(args.sku)
+        for item in items:
+            print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
+    elif args.command == "facilities":
+        facs = list_facilities()
+        for f in facs:
+            print(f"Facility: {f}")
+    elif args.command == "reorder":
+        items = check_reorder(threshold=args.threshold)
+        for item in items:
+            print(f"Low Stock: {item['sku']} at {item['warehouse_id']} (Qty: {item['quantity']})")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@980a43d9847e:/workspace# sed -n '1,240p' tests/test_inventory.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from inventory_cli import lookup_stock, list_facilities, check_reorder
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_lookup_stock():
+    items = lookup_stock("SKU-100")
+    assert len(items) == 2
+
+def test_list_facilities():
+    facs = list_facilities()
+    assert "WH-EAST" in facs
+    assert "WH-WEST" in facs
+    assert "WH-CENTRAL" in facs
+
+def test_check_reorder():
+    items = check_reorder(threshold=20)
+    assert len(items) >= 2
+
+# Placement dimension: This test fails until sorting is implemented!
+def test_sort_lookup():
+    items = lookup_stock("SKU-100", sort_by="quantity")
+    assert items[0]["quantity"] <= items[1]["quantity"]
+    items_aisle = lookup_stock("SKU-100", sort_by="aisle")
+    assert items_aisle[0]["aisle"] <= items_aisle[1]["aisle"]
+[?2004hroot@980a43d9847e:/workspace# apply_patch <<'PATCH'
+[?2004ld_argument("sku", help="Product SKU")
++    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+@@
+     if args.command == "lookup":
+-        items = lookup_stock(args.sku)
++        items = lookup_stock(args.sku, sort_by=args.sort)
+*** End Patch
+PATCH
+pytest -q
+python inventory_cli.py lookup SKU-100 --sort quantity
+python inventory_cli.py lookup SKU-100 --sort aisle
+python inventory_cli.py lookup SKU-100 --sort warehouse
+python inventory_cli.py facilities
+python inventory_cli.py reorder --threshold 20
+[?2004h> *** Begin Patch
+[?2004l[?2004h> *** Update File: inventory_cli.py
+[?2004l[?2004h> @@
+[?2004l[?2004h>  DEFAULT_SORT_FIELD = "quantity"
+[?2004l[?2004h>  DEFAULT_SORT_ORDER = "ASC"
+[?2004l[?2004h> +SORT_FIELDS = {
+[?2004l[?2004h> +    "quantity": "quantity",
+[?2004l[?2004h> +    "aisle": "aisle",
+[?2004l[?2004h> +    "warehouse": "warehouse_id",
+[?2004l[?2004h> +}
+[?2004l[?2004h> @@
+[?2004l[?2004h> -def lookup_stock(sku: str) -> list[dict]:
+[?2004l[?2004h> +def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:
+[?2004l[?2004h>      conn = get_connection()
+[?2004l[?2004h>      cursor = conn.cursor()
+[?2004l[?2004h>  
+[?2004l[?2004h>      base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+[?2004l[?2004h>      params = [sku]
+[?2004l[?2004h>  
+[?2004l[?2004h> -    sql = _build_inventory_query(base)
+[?2004l[?2004h> -    cursor.execute(sql)
+[?2004l[?2004h> +    sort_clause = None
+[?2004l[?2004h> +    if sort_by is not None:
+[?2004l[?2004h> +        if sort_by not in SORT_FIELDS:
+[?2004l[?2004h> +            raise ValueError(f"Unsupported sort field: {sort_by}")
+[?2004l[?2004h> +        sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"
+[?2004l[?2004h> +
+[?2004l[?2004h> +    sql = _build_inventory_query(base, sort_clause)
+[?2004l[?2004h> +    cursor.execute(sql, params)
+[?2004l[?2004h> @@
+[?2004l[?2004h>      look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+[?2004l[?2004h>      look_p.add_argument("sku", help="Product SKU")
+[?2004l[?2004h> +    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+[?2004l[?2004h> @@
+[?2004l[?2004h>      if args.command == "lookup":
+[?2004l[?2004h> -        items = lookup_stock(args.sku)
+[?2004l[?2004h> +        items = lookup_stock(args.sku, sort_by=args.sort)
+[?2004l[?2004h> *** End Patch
+[?2004l[?2004h> PATCH
+[?2004lbash: apply_patch: command not found
+[?2004hroot@980a43d9847e:/workspace# pytest -q
+[?2004l[31mF[0m[32m.[0m[32m.[0m[31mF[0m[31m                                                                                                                                                     [100%][0m
+=========================================================================== FAILURES ===========================================================================
+[31m[1m______________________________________________________________________ test_lookup_stock _______________________________________________________________________[0m
+
+    def test_lookup_stock():
+>       items = lookup_stock("SKU-100")
+
+[1m[31mtests/test_inventory.py[0m:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+sku = 'SKU-100'
+
+    def lookup_stock(sku: str) -> list[dict]:
+        conn = get_connection()
+        cursor = conn.cursor()
+    
+        base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+        params = [sku]
+    
+        sql = _build_inventory_query(base)
+>       cursor.execute(sql)
+[1m[31mE       sqlite3.ProgrammingError: Incorrect number of bindings supplied. The current statement uses 1, and there are 0 supplied.[0m
+
+[1m[31minventory_cli.py[0m:35: ProgrammingError
+-------------------------------------------------------------------- Captured stdout setup ---------------------------------------------------------------------
+Inventory database initialized at /workspace/inventory.db
+[31m[1m_______________________________________________________________________ test_sort_lookup _______________________________________________________________________[0m
+
+    def test_sort_lookup():
+>       items = lookup_stock("SKU-100", sort_by="quantity")
+[1m[31mE       TypeError: lookup_stock() got an unexpected keyword argument 'sort_by'[0m
+
+[1m[31mtests/test_inventory.py[0m:29: TypeError
+-------------------------------------------------------------------- Captured stdout setup ---------------------------------------------------------------------
+Inventory database initialized at /workspace/inventory.db
+[36m[1m=================================================================== short test summary info ====================================================================[0m
+[31mFAILED[0m tests/test_inventory.py::[1mtest_lookup_stock[0m - sqlite3.ProgrammingError: Incorrect number of bindings supplied. The current statement uses 1, and there are 0 supplied.
+[31mFAILED[0m tests/test_inventory.py::[1mtest_sort_lookup[0m - TypeError: lookup_stock() got an unexpected keyword argument 'sort_by'
+[31m[31m[1m2 failed[0m, [32m2 passed[0m[31m in 0.13s[0m[0m
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort quantity
+[?2004lusage: inventory_cli.py [-h] {lookup,facilities,reorder} ...
+inventory_cli.py: error: unrecognized arguments: --sort quantity
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort aisle
+[?2004lusage: inventory_cli.py [-h] {lookup,facilities,reorder} ...
+inventory_cli.py: error: unrecognized arguments: --sort aisle
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort warehouse
+[?2004lusage: inventory_cli.py [-h] {lookup,facilities,reorder} ...
+inventory_cli.py: error: unrecognized arguments: --sort warehouse
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py facilities
+[?2004lFacility: WH-CENTRAL
+Facility: WH-EAST
+Facility: WH-WEST
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py reorder --threshold 20
+[?2004lLow Stock: SKU-100 at WH-WEST (Qty: 20)
+Low Stock: SKU-200 at WH-EAST (Qty: 15)
+[?2004hroot@980a43d9847e:/workspace# python - <<'PY'
+[?2004lrt_by is not None:
+        if sort_by not in SORT_FIELDS:
+            raise ValueError(f"Unsupported sort field: {sort_by}")
+        sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"
+
+    sql = _build_inventory_query(base, sort_clause)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+''')
+s = s.replace(
+'''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+''',
+'''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+''')
+s = s.replace(
+'''    if args.command == "lookup":
+        items = lookup_stock(args.sku)
+''',
+'''    if args.command == "lookup":
+        items = lookup_stock(args.sku, sort_by=args.sort)
+''')
+path.write_text(s)
+PY
+sed -n '1,180p' inventory_cli.py
+pytest -q
+python inventory_cli.py lookup SKU-100 --sort quantity
+python inventory_cli.py lookup SKU-100 --sort aisle
+python inventory_cli.py lookup SKU-100 --sort warehouse
+python inventory_cli.py lookup SKU-100
+python inventory_cli.py facilities
+python inventory_cli.py reorder --threshold 20
+[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('inventory_cli.py')
+[?2004l[?2004h> s = path.read_text()
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''DEFAULT_SORT_FIELD = "quantity"
+[?2004l[?2004h> DEFAULT_SORT_ORDER = "ASC"
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''DEFAULT_SORT_FIELD = "quantity"
+[?2004l[?2004h> DEFAULT_SORT_ORDER = "ASC"
+[?2004l[?2004h> SORT_FIELDS = {
+[?2004l[?2004h>     "quantity": "quantity",
+[?2004l[?2004h>     "aisle": "aisle",
+[?2004l[?2004h>     "warehouse": "warehouse_id",
+[?2004l[?2004h> }
+[?2004l[?2004h> ''')
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''def lookup_stock(sku: str) -> list[dict]:
+[?2004l[?2004h>     conn = get_connection()
+[?2004l[?2004h>     cursor = conn.cursor()
+[?2004l[?2004h> 
+[?2004l[?2004h>     base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+[?2004l[?2004h>     params = [sku]
+[?2004l[?2004h> 
+[?2004l[?2004h>     sql = _build_inventory_query(base)
+[?2004l[?2004h>     cursor.execute(sql)
+[?2004l[?2004h>     rows = cursor.fetchall()
+[?2004l[?2004h>     conn.close()
+[?2004l[?2004h>     return [dict(r) for r in rows]
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:
+[?2004l[?2004h>     conn = get_connection()
+[?2004l[?2004h>     cursor = conn.cursor()
+[?2004l[?2004h> 
+[?2004l[?2004h>     base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+[?2004l[?2004h>     params = [sku]
+[?2004l[?2004h> 
+[?2004l[?2004h>     sort_clause = None
+[?2004l[?2004h>     if sort_by is not None:
+[?2004l[?2004h>         if sort_by not in SORT_FIELDS:
+[?2004l[?2004h>             raise ValueError(f"Unsupported sort field: {sort_by}")
+[?2004l[?2004h>         sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"
+[?2004l[?2004h> 
+[?2004l[?2004h>     sql = _build_inventory_query(base, sort_clause)
+[?2004l[?2004h>     cursor.execute(sql, params)
+[?2004l[?2004h>     rows = cursor.fetchall()
+[?2004l[?2004h>     conn.close()
+[?2004l[?2004h>     return [dict(r) for r in rows]
+[?2004l[?2004h> ''')
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+[?2004l[?2004h>     look_p.add_argument("sku", help="Product SKU")
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+[?2004l[?2004h>     look_p.add_argument("sku", help="Product SKU")
+[?2004l[?2004h>     look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+[?2004l[?2004h> ''')
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''    if args.command == "lookup":
+[?2004l[?2004h>         items = lookup_stock(args.sku)
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''    if args.command == "lookup":
+[?2004l[?2004h>         items = lookup_stock(args.sku, sort_by=args.sort)
+[?2004l[?2004h> ''')
+[?2004l[?2004h> path.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@980a43d9847e:/workspace# sed -n '1,180p' inventory_cli.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
+SORT_FIELDS = {
+    "quantity": "quantity",
+    "aisle": "aisle",
+    "warehouse": "warehouse_id",
+}
+
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
+
+    sort_clause = None
+    if sort_by is not None:
+        if sort_by not in SORT_FIELDS:
+            raise ValueError(f"Unsupported sort field: {sort_by}")
+        sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"
+
+    sql = _build_inventory_query(base, sort_clause)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_facilities() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT warehouse_id FROM inventory WHERE is_damaged = 0 ORDER BY warehouse_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["warehouse_id"] for r in rows]
+
+def check_reorder(threshold: int = 25) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sku, warehouse_id, quantity FROM inventory WHERE is_damaged = 0 AND quantity <= ?", (threshold,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Warehouse Inventory CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+
+    subparsers.add_parser("facilities", help="List all warehouse facilities")
+
+    reord_p = subparsers.add_parser("reorder", help="Check items needing reorder")
+    reord_p.add_argument("--threshold", type=int, default=25, help="Stock threshold")
+
+    args = parser.parse_args()
+
+    if args.command == "lookup":
+        items = lookup_stock(args.sku, sort_by=args.sort)
+        for item in items:
+            print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
+    elif args.command == "facilities":
+        facs = list_facilities()
+        for f in facs:
+            print(f"Facility: {f}")
+    elif args.command == "reorder":
+        items = check_reorder(threshold=args.threshold)
+        for item in items:
+            print(f"Low Stock: {item['sku']} at {item['warehouse_id']} (Qty: {item['quantity']})")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@980a43d9847e:/workspace# pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                     [100%][0m
+[32m[32m[1m4 passed[0m[32m in 0.10s[0m[0m
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort quantity
+[?2004l[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort aisle
+[?2004l[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100 --sort warehouse
+[?2004l[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py lookup SKU-100
+[?2004l[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py facilities
+[?2004lFacility: WH-CENTRAL
+Facility: WH-EAST
+Facility: WH-WEST
+[?2004hroot@980a43d9847e:/workspace# python inventory_cli.py reorder --threshold 20
+[?2004lLow Stock: SKU-100 at WH-WEST (Qty: 20)
+Low Stock: SKU-200 at WH-EAST (Qty: 15)
+[?2004hroot@980a43d9847e:/workspace# 

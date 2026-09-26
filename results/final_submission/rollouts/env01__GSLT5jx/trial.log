@@ -1,0 +1,32 @@
+Trial env01__GSLT5jx failed: Docker compose command failed for environment env01. Command: docker compose --project-name env01__gslt5jx__env --project-directory C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\AI_grader\environments\env01\environment -f C:\Users\DELL\AppData\Local\Temp\tmpf04q1ve8\env01__GSLT5jx__env-docker-compose-resources.json -f C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\environments\docker\docker-compose-build.yaml -f C:\Users\DELL\AppData\Local\Temp\tmpwfifvkh4\docker-compose-environment.json -f C:\Users\DELL\AppData\Local\Temp\tmp_lyfaiba\docker-compose-mounts.json build. Return code: 1. Stdout:  Image env01__gslt5jx__env-main Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 661B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 590B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.11.8-slim-bookworm
+#3 ERROR: failed to do request: Head "https://registry-1.docker.io/v2/library/python/manifests/3.11.8-slim-bookworm": tls: failed to verify certificate: x509: certificate is valid for *.iitg.ac.in, not registry-1.docker.io
+------
+ > [internal] load metadata for docker.io/library/python:3.11.8-slim-bookworm:
+------
+Dockerfile:2
+
+--------------------
+
+   1 |     # Pinned Debian-based Python 3.11 base image
+
+   2 | >>> FROM python:3.11.8-slim-bookworm
+
+   3 |     
+
+   4 |     # Install system dependencies (tar, gzip, bash, coreutils)
+
+--------------------
+
+failed to solve: python:3.11.8-slim-bookworm: failed to resolve source metadata for docker.io/library/python:3.11.8-slim-bookworm: failed to do request: Head "https://registry-1.docker.io/v2/library/python/manifests/3.11.8-slim-bookworm": tls: failed to verify certificate: x509: certificate is valid for *.iitg.ac.in, not registry-1.docker.io
+
+. Stderr: None. 
+Collecting main service artifacts

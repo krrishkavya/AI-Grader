@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 494, in run
+    await self._prepare()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 540, in _prepare
+    await self._setup_agent()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 1709, in _setup_agent
+    await asyncio.wait_for(
+    ...<2 lines>...
+    )
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\asyncio\tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 513, in setup
+    await self._session.start()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\tmux_session.py", line 503, in start
+    raise RuntimeError(
+        f"Failed to start tmux session. Error: {start_session_result.stderr}"
+    )
+RuntimeError: Failed to start tmux session. Error: None

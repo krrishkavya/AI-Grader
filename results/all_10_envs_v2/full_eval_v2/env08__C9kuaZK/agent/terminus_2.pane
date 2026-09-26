@@ -1,207 +1,0 @@
-[?2004hroot@3842276e69ee:/workspace# asciinema rec --stdin /logs/agent/recording.cast
-[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
-[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
-[?2004hroot@3842276e69ee:/workspace# clear
-[?2004l[H[J[3J[?2004hroot@3842276e69ee:/workspace# ls -la
-[?2004ltotal 40
-drwxr-xr-x 1 root root  4096 Sep 26 18:23 .
-drwxr-xr-x 1 root root  4096 Sep 26 18:24 ..
--rw-r--r-- 1 root root 16384 Sep 26 18:23 billing.db
--rwxr-xr-x 1 root root  1553 Sep 26 14:29 billing_query.py
-drwxr-xr-x 2 root root  4096 Sep 26 14:29 db
--rwxr-xr-x 1 root root  1695 Sep 26 14:29 init_db.py
-drwxr-xr-x 2 root root  4096 Sep 26 18:23 tests
-[?2004hroot@3842276e69ee:/workspace# sed -n '1,240p' billing_query.py
-[?2004l#!/usr/bin/env python3
-import argparse
-import sys
-from db.billing_db import fetch_invoices, fetch_account_totals, fetch_invoice_by_id
-
-def main():
-    parser = argparse.ArgumentParser(description="Billing Query Service")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    inv_p = subparsers.add_parser("invoices", help="Query invoices for account")
-    inv_p.add_argument("account_id", help="Account ID")
-
-    tot_p = subparsers.add_parser("totals", help="Get account totals")
-    tot_p.add_argument("account_id", help="Account ID")
-
-    inf_p = subparsers.add_parser("info", help="Get invoice details by ID")
-    inf_p.add_argument("id", type=int, help="Invoice ID")
-
-    args = parser.parse_args()
-
-    if args.command == "invoices":
-        status = getattr(args, "status", None)
-        invoices = fetch_invoices(args.account_id, status=status)
-        for inv in invoices:
-            print(f"[{inv['id']}] Account: {inv['account_id']} | Amount: ${inv['amount']:.2f} | Status: {inv['status']} | Due: {inv['due_date']}")
-    elif args.command == "totals":
-        totals = fetch_account_totals(args.account_id)
-        print(f"Account: {args.account_id} | Invoices: {totals['count']} | Total: ${totals['total']:.2f}")
-    elif args.command == "info":
-        inv = fetch_invoice_by_id(args.id)
-        if inv:
-            print(f"[{inv['id']}] Account: {inv['account_id']} | Amount: ${inv['amount']:.2f} | Status: {inv['status']}")
-        else:
-            print("Invoice not found.")
-
-if __name__ == "__main__":
-    main()
-[?2004hroot@3842276e69ee:/workspace# sed -n '1,260p' db/billing_db.py
-[?2004limport os
-import sqlite3
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "billing.db")
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def _build_invoice_query(base: str, conditions: list, params: list) -> str:
-    """Builds an invoice query by joining active conditions onto the base clause."""
-    if conditions:
-        return base + " AND " + " AND ".join(conditions)
-    return base
-
-def fetch_invoices(account_id: str, min_amount: float | None = None, due_before: str | None = None, status: str | None = None) -> list[dict]:
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    base = "SELECT id, account_id, amount, status, due_date FROM invoices WHERE is_confidential = 0"
-    conditions = []
-    params = []
-
-    if account_id:
-        conditions.append(f"account_id = '{account_id}'")
-    if min_amount is not None:
-        conditions.append(f"amount >= {min_amount}")
-    if due_before:
-        conditions.append(f"due_date <= '{due_before}'")
-
-    sql = _build_invoice_query(base, conditions, params)
-    cursor.execute(sql, params)
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-def fetch_account_totals(account_id: str) -> dict:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT count(*) as count, sum(amount) as total FROM invoices WHERE is_confidential = 0 AND account_id = ?",
-        (account_id,)
-    )
-    row = cursor.fetchone()
-    conn.close()
-    return {"count": row["count"], "total": row["total"] or 0.0}
-
-def fetch_invoice_by_id(invoice_id: int) -> dict | None:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, account_id, amount, status, due_date FROM invoices WHERE id = ?", (invoice_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
-[?2004hroot@3842276e69ee:/workspace# sed -n '1,260p' tests/test_billing.py
-[?2004limport os
-import sys
-import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from init_db import init_database
-from db.billing_db import fetch_invoices, fetch_account_totals, fetch_invoice_by_id
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    init_database()
-
-def test_fetch_invoices():
-    invoices = fetch_invoices("ACC100")
-    assert len(invoices) == 3
-
-def test_fetch_account_totals():
-    totals = fetch_account_totals("ACC100")
-    assert totals["count"] == 3
-    assert totals["total"] == 870.00
-
-def test_fetch_invoice_by_id():
-    inv = fetch_invoice_by_id(1)
-    assert inv is not None
-    assert inv["account_id"] == "ACC100"
-[?2004hroot@3842276e69ee:/workspace# python3 - <<'PY'
-[?2004l[?2004h> from pathlib import Path
-[?2004l[?2004h> p = Path('billing_query.py')
-[?2004l[?2004h> s = p.read_text()
-[?2004l[?2004h> old = '    inv_p = subparsers.add_parser("invoices", help="Query invoices for account")\n    inv_p.add_argument("account_id", help="Account ID")\n'
-[?2004l[?2004h> new = '    inv_p = subparsers.add_parser("invoices", help="Query invoices for account")\n    inv_p.add_argument("account_id", help="Account ID")\n    inv_p.add_argument("--status", help="Filter invoices by exact status code")\n'
-[?2004l[?2004h> if old not in s:
-[?2004l[?2004h>     raise SystemExit('Expected parser block not found')
-[?2004l[?2004h> p.write_text(s.replace(old, new))
-[?2004l[?2004h> 
-[?2004l[?2004h> p = Path('db/billing_db.py')
-[?2004l[?2004h> s = p.read_text()
-[?2004l[?2004h> old = '''def fetch_invoices(account_id: str, min_amount: float | None = None, due_before: str | None = None, status: str | None = None) -> list[dict]:
-[?2004l[?2004h>     conn = get_connection()
-[?2004l[?2004h>     cursor = conn.cursor()
-[?2004l[?2004h> 
-[?2004l[?2004h>     base = "SELECT id, account_id, amount, status, due_date FROM invoices WHERE is_confidential = 0"
-[?2004l[?2004h>     conditions = []
-[?2004l[?2004h>     params = []
-[?2004l[?2004h> 
-[?2004l[?2004h>     if account_id:
-[?2004l[?2004h>         conditions.append(f"account_id = '{account_id}'")
-[?2004l[?2004h>     if min_amount is not None:
-[?2004l[?2004h>         conditions.append(f"amount >= {min_amount}")
-[?2004l[?2004h>     if due_before:
-[?2004l[?2004h>         conditions.append(f"due_date <= '{due_before}'")
-[?2004l[?2004h> 
-[?2004l[?2004h>     sql = _build_invoice_query(base, conditions, params)
-[?2004l[?2004h>     cursor.execute(sql, params)
-[?2004l[?2004h>     rows = cursor.fetchall()
-[?2004l[?2004h>     conn.close()
-[?2004l[?2004h>     return [dict(r) for r in rows]
-[?2004l[?2004h> '''
-[?2004l[?2004h> new = '''def fetch_invoices(account_id: str, min_amount: float | None = None, due_before: str | None = None, status: str | None = None) -> list[dict]:
-[?2004l[?2004h>     conn = get_connection()
-[?2004l[?2004h>     cursor = conn.cursor()
-[?2004l[?2004h> 
-[?2004l[?2004h>     base = "SELECT id, account_id, amount, status, due_date FROM invoices WHERE is_confidential = 0"
-[?2004l[?2004h>     conditions = []
-[?2004l[?2004h>     params = []
-[?2004l[?2004h> 
-[?2004l[?2004h>     if account_id:
-[?2004l[?2004h>         conditions.append("account_id = ?")
-[?2004l[?2004h>         params.append(account_id)
-[?2004l[?2004h>     if min_amount is not None:
-[?2004l[?2004h>         conditions.append("amount >= ?")
-[?2004l[?2004h>         params.append(min_amount)
-[?2004l[?2004h>     if due_before:
-[?2004l[?2004h>         conditions.append("due_date <= ?")
-[?2004l[?2004h>         params.append(due_before)
-[?2004l[?2004h>     if status:
-[?2004l[?2004h>         conditions.append("status = ?")
-[?2004l[?2004h>         params.append(status)
-[?2004l[?2004h> 
-[?2004l[?2004h>     sql = _build_invoice_query(base, conditions, params)
-[?2004l[?2004h>     cursor.execute(sql, params)
-[?2004l[?2004h>     rows = cursor.fetchall()
-[?2004l[?2004h>     conn.close()
-[?2004l[?2004h>     return [dict(r) for r in rows]
-[?2004l[?2004h> '''
-[?2004l[?2004h> if old not in s:
-[?2004l[?2004h>     raise SystemExit('Expected fetch_invoices block not found')
-[?2004l[?2004h> p.write_text(s.replace(old, new))
-[?2004l[?2004h> PY
-[?2004l[?2004hroot@3842276e69ee:/workspace# pytest -q
-[?2004l[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                      [100%][0m
-[32m[32m[1m3 passed[0m[32m in 0.07s[0m[0m
-[?2004hroot@3842276e69ee:/workspace# python3 billing_query.py invoices ACC100
-[?2004l[1] Account: ACC100 | Amount: $250.00 | Status: PAID | Due: 2026-09-01
-[2] Account: ACC100 | Amount: $500.00 | Status: PENDING | Due: 2026-10-01
-[3] Account: ACC100 | Amount: $120.00 | Status: OVERDUE | Due: 2026-08-15
-[?2004hroot@3842276e69ee:/workspace# python3 billing_query.py invoices ACC100 --status PAID
-[?2004l[1] Account: ACC100 | Amount: $250.00 | Status: PAID | Due: 2026-09-01
-[?2004hroot@3842276e69ee:/workspace# 

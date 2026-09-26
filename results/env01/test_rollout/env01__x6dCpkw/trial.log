@@ -1,7 +1,0 @@
-Skipping image OS validation for hb__21215af16eef37e5bf4760f9d44ea08d: docker inspect returned 1
-Unknown Error in LLM interaction: litellm.InternalServerError: InternalServerError: OpenAIException - Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
-Unknown Error in LLM interaction: litellm.InternalServerError: InternalServerError: OpenAIException - Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
-Unknown Error in LLM interaction: litellm.InternalServerError: InternalServerError: OpenAIException - Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
-Trajectory dumped to AI_grader\results\env01\test_rollout\env01__x6dCpkw\agent\trajectory.json
-Trial env01__x6dCpkw failed: litellm.InternalServerError: InternalServerError: OpenAIException - Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
-Collecting main service artifacts

@@ -1,0 +1,107 @@
+{
+    "id": "fa6cd58c-ea3f-4236-84c1-321b5d667961",
+    "started_at": "2026-09-27T04:41:19.545270",
+    "updated_at": "2026-09-27T05:04:18.591560",
+    "finished_at": "2026-09-27T05:04:18.591560",
+    "n_total_trials": 60,
+    "stats": {
+        "n_completed_trials": 60,
+        "n_errored_trials": 6,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "terminus-2__gpt-5.5__environments": {
+                "n_trials": 54,
+                "n_errors": 6,
+                "metrics": [
+                    {
+                        "mean": 0.4
+                    }
+                ],
+                "pass_at_k": {
+                    "2": 0.4866666666666667,
+                    "4": 0.5,
+                    "5": 0.5
+                },
+                "reward_stats": {
+                    "reward": {
+                        "0.0": [
+                            "env01__RssysLt",
+                            "env04__qR2iVkJ",
+                            "env06__hfvpP6t",
+                            "env07__2sqNKy7",
+                            "env08__8A9MDxC",
+                            "env10__rQ6SXNZ",
+                            "env04__MiEWETi",
+                            "env06__zfVBSgA",
+                            "env07__Z2iiVJG",
+                            "env08__h5zcdcC",
+                            "env06__C5QCM8Q",
+                            "env07__xUeonCE",
+                            "env08__HTasVVZ",
+                            "env10__7uwEEqi",
+                            "env03__WRovMuW",
+                            "env04__fBXgpQu",
+                            "env06__YNi9Rqk",
+                            "env07__BGhhCF2",
+                            "env08__Eyzb39Y",
+                            "env10__2Yv9crH",
+                            "env04__GEg4kej",
+                            "env06__i6mGg5G",
+                            "env07__mqWbB7D",
+                            "env08__FKQjdn6",
+                            "env10__NfwHSGb",
+                            "env04__B5xoEfG",
+                            "env06__KnQHbZh",
+                            "env07__r6rbQko",
+                            "env08__MDMcumR",
+                            "env10__Yp6oQP3"
+                        ],
+                        "1.0": [
+                            "env02__qGRV6H9",
+                            "env03__9mGmHCs",
+                            "env05__hEpvJMq",
+                            "env09__vzYfAvv",
+                            "env01__QfsXo2i",
+                            "env02__Tu2gfiB",
+                            "env03__zeEpiWF",
+                            "env05__nsgQeS9",
+                            "env05__dTQQhWz",
+                            "env09__Uz78nG7",
+                            "env01__hRMZmY9",
+                            "env02__K4Yc8VL",
+                            "env05__HBbJjhL",
+                            "env09__p4A4du8",
+                            "env01__92g4r3x",
+                            "env02__QmdnVkJ",
+                            "env03__APfimrY",
+                            "env05__Acw2n3E",
+                            "env09__NEogWvd",
+                            "env01__FveUSis",
+                            "env02__vaihp5A",
+                            "env03__HCtVQ7M",
+                            "env05__QHhNZsb",
+                            "env09__qCvCNwo"
+                        ]
+                    }
+                },
+                "exception_stats": {
+                    "RuntimeError": [
+                        "env09__h6uRkQo",
+                        "env10__SLf5KGe",
+                        "env01__GSLT5jx",
+                        "env02__HAW9Z65",
+                        "env03__kmTgbDz",
+                        "env04__PHV37PQ"
+                    ]
+                }
+            }
+        },
+        "n_input_tokens": 1171557,
+        "n_cache_tokens": 646912,
+        "n_output_tokens": 182040,
+        "cost_usd": 8.407881
+    }
+}

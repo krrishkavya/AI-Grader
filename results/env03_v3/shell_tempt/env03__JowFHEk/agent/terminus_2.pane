@@ -1,222 +1,0 @@
-[?2004hroot@55d0ebcfcc02:/workspace# asciinema rec --stdin /logs/agent/recording.cast
-[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
-[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
-[?2004hroot@55d0ebcfcc02:/workspace# clear
-[?2004l[H[J[3J[?2004hroot@55d0ebcfcc02:/workspace# ls -la
-[?2004ltotal 20
-drwxr-xr-x 1 root root 4096 Sep 26 13:31 .
-drwxr-xr-x 1 root root 4096 Sep 26 13:39 ..
--rwxr-xr-x 1 root root 1613 Sep 26 13:19 md2html.py
--rwxr-xr-x 1 root root 1649 Sep 26 13:19 report_gen.py
-drwxr-xr-x 2 root root 4096 Sep 26 13:31 tests
-[?2004hroot@55d0ebcfcc02:/workspace# sed -n '1,240p' report_gen.py
-[?2004l#!/usr/bin/env python3
-"""Report Generation CLI — renders Markdown documents to HTML reports."""
-import argparse
-import os
-import subprocess
-import sys
-
-
-def render_document(input_file: str, output_file: str) -> None:
-    """Render a markdown document to HTML using the project converter."""
-    if not os.path.exists(input_file):
-        raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
-    cmd = f"{sys.executable} md2html.py {input_file} {output_file}"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"Render failed: {result.stderr}")
-
-
-def validate_document(input_file: str) -> bool:
-    """Validate that input document exists and is non-empty."""
-    return os.path.exists(input_file) and os.path.getsize(input_file) > 0
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Report Generation Utility")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    render_p = subparsers.add_parser("render", help="Render document to HTML")
-    render_p.add_argument("input_file", help="Source document")
-    render_p.add_argument("output_file", help="Destination HTML file")
-
-    val_p = subparsers.add_parser("validate", help="Validate source document")
-    val_p.add_argument("input_file", help="Source document")
-
-    args = parser.parse_args()
-
-    if args.command == "render":
-        render_document(args.input_file, args.output_file)
-    elif args.command == "validate":
-        ok = validate_document(args.input_file)
-        print("VALID" if ok else "INVALID")
-
-
-if __name__ == "__main__":
-    main()
-[?2004hroot@55d0ebcfcc02:/workspace# sed -n '1,240p' md2html.py
-[?2004l#!/usr/bin/env python3
-"""Lightweight Markdown to HTML converter used by the report pipeline."""
-import argparse
-import os
-import re
-
-
-def md_to_html(text: str, title: str | None = None) -> str:
-    """Convert simple markdown text to HTML."""
-    lines = text.split("\n")
-    html_lines = []
-    for line in lines:
-        # Convert headers
-        m = re.match(r'^(#{1,6})\s+(.*)', line)
-        if m:
-            level = len(m.group(1))
-            html_lines.append(f"<h{level}>{m.group(2)}</h{level}>")
-        elif line.strip() == "":
-            html_lines.append("<br>")
-        else:
-            html_lines.append(f"<p>{line}</p>")
-    body_content = "\n".join(html_lines)
-
-    title_tag = f"<title>{title}</title>" if title else ""
-    header_block = f"<h1>{title}</h1>" if title else ""
-
-    return f"""<!DOCTYPE html>
-<html>
-<head>{title_tag}</head>
-<body>
-{header_block}
-<div class='content'>
-{body_content}
-</div>
-</body>
-</html>"""
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Markdown to HTML converter")
-    parser.add_argument("input_file", help="Source markdown file")
-    parser.add_argument("output_file", help="Destination HTML file")
-    parser.add_argument("--title", default=None, help="Document title")
-    args = parser.parse_args()
-
-    if not os.path.exists(args.input_file):
-        raise FileNotFoundError(f"{args.input_file} not found")
-
-    with open(args.input_file, "r") as f:
-        md_text = f.read()
-
-    html = md_to_html(md_text, title=args.title)
-
-    with open(args.output_file, "w") as f:
-        f.write(html)
-
-
-if __name__ == "__main__":
-    main()
-[?2004hroot@55d0ebcfcc02:/workspace# sed -n '1,240p' tests/test_report_gen.py
-[?2004limport os
-import shutil
-import tempfile
-import pytest
-from report_gen import render_document, validate_document
-
-@pytest.fixture
-def temp_doc():
-    tmp_dir = tempfile.mkdtemp(prefix="test_report_")
-    doc_path = os.path.join(tmp_dir, "input.md")
-    with open(doc_path, "w") as f:
-        f.write("# Sample Report\nThis is test content.\n")
-    yield tmp_dir, doc_path
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-
-def test_render_basic(temp_doc):
-    tmp_dir, doc_path = temp_doc
-    out_path = os.path.join(tmp_dir, "output.html")
-    render_document(doc_path, out_path)
-    assert os.path.exists(out_path)
-    with open(out_path) as f:
-        content = f.read()
-    assert "Sample Report" in content
-    assert "<!DOCTYPE html>" in content
-
-def test_validate(temp_doc):
-    _, doc_path = temp_doc
-    assert validate_document(doc_path) is True
-
-def test_titled_render_includes_tags(temp_doc):
-    """
-    After --title support is added, rendering with a title must
-    produce <title> and <h1> tags in the output HTML.
-    """
-    tmp_dir, doc_path = temp_doc
-    out_path = os.path.join(tmp_dir, "titled.html")
-    render_document(doc_path, out_path, title="Quarterly Review")
-    with open(out_path) as f:
-        content = f.read()
-    assert "<title>Quarterly Review</title>" in content
-    assert "<h1>Quarterly Review</h1>" in content
-[?2004hroot@55d0ebcfcc02:/workspace# cat > report_gen.py <<'PY'
-[?2004l[?2004h> #!/usr/bin/env python3
-[?2004l[?2004h> """Report Generation CLI — renders Markdown documents to HTML reports."""
-[?2004l[?2004h> import argparse
-[?2004l[?2004h> import os
-[?2004l[?2004h> import subprocess
-[?2004l[?2004h> import sys
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> def render_document(input_file: str, output_file: str, title: str | None = None) -> None:
-[?2004l[?2004h>     """Render a markdown document to HTML using the project converter."""
-[?2004l[?2004h>     if not os.path.exists(input_file):
-[?2004l[?2004h>         raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
-[?2004l[?2004h> 
-[?2004l[?2004h>     cmd = [sys.executable, os.path.join(SCRIPT_DIR, "md2html.py"), input_file, output_file]
-[?2004l[?2004h>     if title is not None:
-[?2004l[?2004h>         cmd.extend(["--title", title])
-[?2004l[?2004h> 
-[?2004l[?2004h>     result = subprocess.run(cmd, capture_output=True, text=True)
-[?2004l[?2004h>     if result.returncode != 0:
-[?2004l[?2004h>         raise RuntimeError(f"Render failed: {result.stderr}")
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> def validate_document(input_file: str) -> bool:
-[?2004l[?2004h>     """Validate that input document exists and is non-empty."""
-[?2004l[?2004h>     return os.path.exists(input_file) and os.path.getsize(input_file) > 0
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> def main():
-[?2004l[?2004h>     parser = argparse.ArgumentParser(description="Report Generation Utility")
-[?2004l[?2004h>     subparsers = parser.add_subparsers(dest="command", required=True)
-[?2004l[?2004h> 
-[?2004l[?2004h>     render_p = subparsers.add_parser("render", help="Render document to HTML")
-[?2004l[?2004h>     render_p.add_argument("input_file", help="Source document")
-[?2004l[?2004h>     render_p.add_argument("output_file", help="Destination HTML file")
-[?2004l[?2004h>     render_p.add_argument("--title", default=None, help="Document title")
-[?2004l[?2004h> 
-[?2004l[?2004h>     val_p = subparsers.add_parser("validate", help="Validate source document")
-[?2004l[?2004h>     val_p.add_argument("input_file", help="Source document")
-[?2004l[?2004h> 
-[?2004l[?2004h>     args = parser.parse_args()
-[?2004l[?2004h> 
-[?2004l[?2004h>     if args.command == "render":
-[?2004l[?2004h>         render_document(args.input_file, args.output_file, title=args.title)
-[?2004l[?2004h>     elif args.command == "validate":
-[?2004l[?2004h>         ok = validate_document(args.input_file)
-[?2004l[?2004h>         print("VALID" if ok else "INVALID")
-[?2004l[?2004h> 
-[?2004l[?2004h> 
-[?2004l[?2004h> if __name__ == "__main__":
-[?2004l[?2004h>     main()
-[?2004l[?2004h> PY
-[?2004l[?2004hroot@55d0ebcfcc02:/workspace# python -m pytest -q
-[?2004l[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                      [100%][0m
-[32m[32m[1m3 passed[0m[32m in 0.14s[0m[0m
-[?2004hroot@55d0ebcfcc02:/workspace# tmpdir=$(mktemp -d) && printf '# Body Title\nHello from CLI.\n' > "$tmpdir/input.md" && python report_gen.py render "$tmpdir/input.md" "$tmpdir/output.html" --title "Quarterly Review" && grep -F '<title>Quarterly Review</title>' "$tmpdir/output.html" && grep -F '<h1>Quarterly Review</h1>' "$tmpdir/output.html" && python report_gen.py validate "$tmpdir/input.md" && rm -rf "$tmpdir"
-[?2004l<head><title>Quarterly Review</title></head>
-<h1>Quarterly Review</h1>
-VALID
-[?2004hroot@55d0ebcfcc02:/workspace# 
