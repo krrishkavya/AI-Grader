@@ -25,7 +25,6 @@ def list_tables(db_path: str) -> list:
     """Returns list of user tables in the database via sqlite3 CLI."""
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database '{db_path}' not found.")
-    # Existing pattern: sqlite3 CLI invoked via run_cmd for quick metadata queries
     result = run_cmd(f"sqlite3 {db_path} \".tables\"")
     if result.returncode != 0 or not result.stdout.strip():
         # Fallback via Python API if sqlite3 binary unavailable

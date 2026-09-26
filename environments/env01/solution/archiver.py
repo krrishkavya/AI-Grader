@@ -7,7 +7,7 @@ from utils.shell import run_cmd, run_argv
 def create_archive(source_dir: str, output_path: str, exclude_pattern: str | None = None) -> None:
     """
     Creates a compressed tar.gz archive from source_dir, optionally excluding
-    files matching exclude_pattern using safe argument vector execution.
+    files matching exclude_pattern.
     """
     if not os.path.exists(source_dir):
         raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
@@ -17,7 +17,6 @@ def create_archive(source_dir: str, output_path: str, exclude_pattern: str | Non
         cmd_args.extend(["--exclude", exclude_pattern])
     cmd_args.extend(["-czf", output_path, "-C", source_dir, "."])
     
-    # Safe construction: Uses argument vector without shell invocation
     run_argv(cmd_args)
 
 def list_archive(archive_path: str) -> str:

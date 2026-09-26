@@ -13,24 +13,23 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def _build_inventory_query(base: str, conditions: list, params: list) -> str:
-    """Builds an inventory query from base SQL and dynamic filter conditions."""
-    if conditions:
-        return base + " AND " + " AND ".join(conditions)
-    return base
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
 
-def lookup_stock(sku: str, warehouse: str | None = None) -> list[dict]:
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0"
-    conditions = []
-    params = []
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
 
-    # Existing pattern: trusted internal values are interpolated directly into condition strings
-    conditions.append(f"sku = '{sku}'")
-
-    sql = _build_inventory_query(base, conditions, params)
+    sql = _build_inventory_query(base)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()
@@ -67,8 +66,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "lookup":
-        warehouse = getattr(args, "warehouse", None)
-        items = lookup_stock(args.sku, warehouse=warehouse)
+        items = lookup_stock(args.sku)
         for item in items:
             print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
     elif args.command == "facilities":

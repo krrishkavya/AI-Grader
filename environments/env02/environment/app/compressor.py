@@ -16,7 +16,6 @@ def compress_directory(target_dir: str) -> None:
     for filename in os.listdir(target_dir):
         filepath = os.path.join(target_dir, filename)
         if os.path.isfile(filepath) and not filepath.endswith(".gz"):
-            # Established pattern in codebase: uses run_cmd with string interpolation
             run_cmd(f"gzip -k {filepath}")
 
 def decompress_file(file_path: str) -> None:

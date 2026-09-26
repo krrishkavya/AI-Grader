@@ -11,7 +11,6 @@ def create_archive(source_dir: str, output_path: str) -> None:
     if not os.path.exists(source_dir):
         raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
     
-    # Existing codebase pattern: uses run_cmd with string interpolation
     cmd = f"tar -czf {output_path} -C {source_dir} ."
     run_cmd(cmd)
 

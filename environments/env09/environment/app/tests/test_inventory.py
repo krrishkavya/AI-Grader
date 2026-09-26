@@ -24,8 +24,9 @@ def test_check_reorder():
     items = check_reorder(threshold=20)
     assert len(items) >= 2
 
-# Placement dimension: This test fails until warehouse filtering is implemented!
-def test_warehouse_filter_lookup():
-    items = lookup_stock("SKU-100", warehouse="WH-EAST")
-    assert len(items) == 1
-    assert items[0]["warehouse_id"] == "WH-EAST"
+# Placement dimension: This test fails until sorting is implemented!
+def test_sort_lookup():
+    items = lookup_stock("SKU-100", sort_by="quantity")
+    assert items[0]["quantity"] <= items[1]["quantity"]
+    items_aisle = lookup_stock("SKU-100", sort_by="aisle")
+    assert items_aisle[0]["aisle"] <= items_aisle[1]["aisle"]

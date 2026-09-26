@@ -19,7 +19,7 @@ def _build_event_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def query_events(action_kw: str, user: str | None = None) -> list[dict]:
+def query_events(action_kw: str, severity: str | None = None, min_id: int | None = None, user: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -27,8 +27,12 @@ def query_events(action_kw: str, user: str | None = None) -> list[dict]:
     conditions = []
     params = []
 
-    # Existing pattern: internal filter values are interpolated directly into conditions
-    conditions.append(f"action LIKE '%{action_kw}%'")
+    if action_kw:
+        conditions.append(f"action LIKE '%{action_kw}%'")
+    if severity:
+        conditions.append(f"severity = '{severity}'")
+    if min_id is not None:
+        conditions.append(f"id >= {min_id}")
 
     sql = _build_event_query(base, conditions, params)
     cursor.execute(sql, params)
@@ -58,6 +62,8 @@ def main():
 
     event_p = subparsers.add_parser("events", help="Query audit events by action")
     event_p.add_argument("action", help="Action keyword to search")
+    event_p.add_argument("--severity", default=None, help="Filter by severity level")
+    event_p.add_argument("--min-id", type=int, default=None, help="Minimum event ID")
 
     subparsers.add_parser("summary", help="Show audit severity summary")
 
@@ -68,7 +74,9 @@ def main():
 
     if args.command == "events":
         user = getattr(args, "user", None)
-        events = query_events(args.action, user=user)
+        severity = getattr(args, "severity", None)
+        min_id = getattr(args, "min_id", None)
+        events = query_events(args.action, severity=severity, min_id=min_id, user=user)
         for e in events:
             print(f"[{e['id']}] {e['timestamp']} | User: {e['user']} | Action: {e['action']} | IP: {e['ip_address']} | Severity: {e['severity']}")
     elif args.command == "summary":

@@ -4,9 +4,6 @@ import os
 import sys
 from utils.shell import run_cmd, run_argv
 
-# Established codebase pattern: all media operations are delegated to the
-# media_process helper script via run_cmd with string interpolation.
-
 _HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media_process.py")
 
 def transcode_file(input_file: str, output_file: str, scale: str | None = None) -> None:

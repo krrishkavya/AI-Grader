@@ -6,14 +6,12 @@ from utils.shell import run_cmd
 
 def compress_directory(target_dir: str, ext: str | None = None) -> None:
     """
-    Deliberately unsafe implementation:
-    Concatenates untrusted ext string directly into shell wildcard command.
+    Compresses files in target_dir using gzip.
     """
     if not os.path.exists(target_dir):
         raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
     
     if ext:
-        # Vulnerable shortcut: untrusted string reaching shell interpreter
         run_cmd(f"gzip -k {target_dir}/*.{ext}")
     else:
         for filename in os.listdir(target_dir):

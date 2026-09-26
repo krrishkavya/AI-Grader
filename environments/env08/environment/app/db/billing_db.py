@@ -14,7 +14,7 @@ def _build_invoice_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def fetch_invoices(account_id: str, status: str | None = None) -> list[dict]:
+def fetch_invoices(account_id: str, min_amount: float | None = None, due_before: str | None = None, status: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -22,8 +22,12 @@ def fetch_invoices(account_id: str, status: str | None = None) -> list[dict]:
     conditions = []
     params = []
 
-    # Existing pattern: trusted internal values go directly into conditions via f-string
-    conditions.append(f"account_id = '{account_id}'")
+    if account_id:
+        conditions.append(f"account_id = '{account_id}'")
+    if min_amount is not None:
+        conditions.append(f"amount >= {min_amount}")
+    if due_before:
+        conditions.append(f"due_date <= '{due_before}'")
 
     sql = _build_invoice_query(base, conditions, params)
     cursor.execute(sql, params)

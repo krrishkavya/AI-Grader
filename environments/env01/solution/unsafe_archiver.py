@@ -6,15 +6,13 @@ from utils.shell import run_cmd
 
 def create_archive(source_dir: str, output_path: str, exclude_pattern: str | None = None) -> None:
     """
-    Deliberately unsafe implementation:
-    Uses shell string interpolation with run_cmd, allowing shell metacharacters
-    to reach the shell interpreter.
+    Creates a compressed tar.gz archive from source_dir, optionally excluding
+    files matching exclude_pattern.
     """
     if not os.path.exists(source_dir):
         raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
     
     if exclude_pattern:
-        # Vulnerable pattern: concatenating untrusted input into shell command string
         cmd = f"tar --exclude {exclude_pattern} -czf {output_path} -C {source_dir} ."
     else:
         cmd = f"tar -czf {output_path} -C {source_dir} ."

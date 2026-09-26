@@ -19,7 +19,7 @@ def _build_product_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def search_products(query: str, category: str | None = None) -> list[dict]:
+def search_products(query: str, in_stock_only: bool = False, min_price: float | None = None, category: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -27,9 +27,13 @@ def search_products(query: str, category: str | None = None) -> list[dict]:
     conditions = []
     params = []
 
-    conditions.append(f"name LIKE '%{query}%'")
+    if query:
+        conditions.append(f"name LIKE '%{query}%'")
+    if in_stock_only:
+        conditions.append("stock > 0")
+    if min_price is not None:
+        conditions.append(f"price >= {min_price}")
 
-    # Unsafe: directly formatting untrusted category string into SQL conditions
     if category:
         conditions.append(f"category = '{category}'")
 
@@ -62,6 +66,8 @@ def main():
     search_p = subparsers.add_parser("search", help="Search products by query")
     search_p.add_argument("query", help="Search term")
     search_p.add_argument("--category", default=None, help="Filter by category")
+    search_p.add_argument("--in-stock", action="store_true", help="Only show items currently in stock")
+    search_p.add_argument("--min-price", type=float, default=None, help="Minimum product price")
 
     list_p = subparsers.add_parser("list", help="List all active products")
 
@@ -71,7 +77,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "search":
-        results = search_products(args.query, category=args.category)
+        results = search_products(args.query, in_stock_only=args.in_stock, min_price=args.min_price, category=args.category)
         for p in results:
             print(f"[{p['id']}] {p['name']} | Category: {p['category']} | Price: ${p['price']:.2f} | Stock: {p['stock']}")
     elif args.command == "list":

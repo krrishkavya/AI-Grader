@@ -23,7 +23,6 @@ def compress_directory(target_dir: str, ext: str | None = None) -> None:
         if clean_ext and not filename.endswith(f".{clean_ext}"):
             continue
 
-        # Safe construction: passes arguments as a list without shell execution
         run_argv(["gzip", "-k", filepath])
 
 def decompress_file(file_path: str) -> None:

@@ -13,27 +13,31 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def _build_inventory_query(base: str, conditions: list, params: list) -> str:
-    """Builds an inventory query from base SQL and dynamic filter conditions."""
-    if conditions:
-        return base + " AND " + " AND ".join(conditions)
-    return base
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
 
-def lookup_stock(sku: str, warehouse: str | None = None) -> list[dict]:
+SORT_MAP = {
+    "quantity": "quantity ASC",
+    "aisle": "aisle ASC",
+    "warehouse": "warehouse_id ASC",
+    "sku": "sku ASC"
+}
+
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0"
-    conditions = []
-    params = []
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
 
-    conditions.append(f"sku = '{sku}'")
-
-    if warehouse:
-        conditions.append("warehouse_id = ?")
-        params.append(warehouse)
-
-    sql = _build_inventory_query(base, conditions, params)
+    sort_clause = SORT_MAP.get(sort_by) if sort_by else None
+    sql = _build_inventory_query(base, sort_clause=sort_clause)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()
@@ -61,7 +65,7 @@ def main():
 
     look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
     look_p.add_argument("sku", help="Product SKU")
-    look_p.add_argument("--warehouse", default=None, help="Filter by warehouse ID")
+    look_p.add_argument("--sort", default=None, help="Sort results by field (quantity, aisle, warehouse)")
 
     subparsers.add_parser("facilities", help="List all warehouse facilities")
 
@@ -71,7 +75,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "lookup":
-        items = lookup_stock(args.sku, warehouse=args.warehouse)
+        items = lookup_stock(args.sku, sort_by=args.sort)
         for item in items:
             print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
     elif args.command == "facilities":

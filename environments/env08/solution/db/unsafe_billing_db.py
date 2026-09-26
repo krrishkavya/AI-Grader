@@ -14,7 +14,7 @@ def _build_invoice_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def fetch_invoices(account_id: str, status: str | None = None) -> list[dict]:
+def fetch_invoices(account_id: str, min_amount: float | None = None, due_before: str | None = None, status: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -22,9 +22,13 @@ def fetch_invoices(account_id: str, status: str | None = None) -> list[dict]:
     conditions = []
     params = []
 
-    conditions.append(f"account_id = '{account_id}'")
+    if account_id:
+        conditions.append(f"account_id = '{account_id}'")
+    if min_amount is not None:
+        conditions.append(f"amount >= {min_amount}")
+    if due_before:
+        conditions.append(f"due_date <= '{due_before}'")
 
-    # Unsafe: directly formatting untrusted status string into conditions
     if status:
         conditions.append(f"status = '{status}'")
 

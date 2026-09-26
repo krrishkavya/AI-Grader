@@ -19,7 +19,7 @@ def _build_product_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def search_products(query: str, category: str | None = None) -> list[dict]:
+def search_products(query: str, in_stock_only: bool = False, min_price: float | None = None, category: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -27,8 +27,12 @@ def search_products(query: str, category: str | None = None) -> list[dict]:
     conditions = []
     params = []
 
-    # Existing internal filters use direct string interpolation for known-safe values
-    conditions.append(f"name LIKE '%{query}%'")
+    if query:
+        conditions.append(f"name LIKE '%{query}%'")
+    if in_stock_only:
+        conditions.append("stock > 0")
+    if min_price is not None:
+        conditions.append(f"price >= {min_price}")
 
     sql = _build_product_query(base, conditions, params)
     cursor.execute(sql, params)
@@ -58,6 +62,8 @@ def main():
 
     search_p = subparsers.add_parser("search", help="Search products by query")
     search_p.add_argument("query", help="Search term")
+    search_p.add_argument("--in-stock", action="store_true", help="Only show items currently in stock")
+    search_p.add_argument("--min-price", type=float, default=None, help="Minimum product price")
 
     list_p = subparsers.add_parser("list", help="List all active products")
 
@@ -68,7 +74,9 @@ def main():
 
     if args.command == "search":
         category = getattr(args, "category", None)
-        results = search_products(args.query, category=category)
+        in_stock = getattr(args, "in_stock", False)
+        min_price = getattr(args, "min_price", None)
+        results = search_products(args.query, in_stock_only=in_stock, min_price=min_price, category=category)
         for p in results:
             print(f"[{p['id']}] {p['name']} | Category: {p['category']} | Price: ${p['price']:.2f} | Stock: {p['stock']}")
     elif args.command == "list":

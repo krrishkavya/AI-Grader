@@ -19,16 +19,20 @@ def _build_notification_query(base: str, conditions: list, params: list) -> str:
         return base + " AND " + " AND ".join(conditions)
     return base
 
-def filter_messages(recipient: str, channel: str | None = None) -> list[dict]:
+def filter_messages(recipient: str, channel: str | None = None, min_id: int | None = None, delivered_only: bool = True) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    base = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE delivered = 1"
+    base = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE 1=1"
     conditions = []
     params = []
 
-    # Existing pattern: recipient is a trusted value interpolated directly into condition string
-    conditions.append(f"recipient = '{recipient}'")
+    if delivered_only:
+        conditions.append("delivered = 1")
+    if recipient:
+        conditions.append(f"recipient = '{recipient}'")
+    if min_id is not None:
+        conditions.append(f"id >= {min_id}")
 
     sql = _build_notification_query(base, conditions, params)
     cursor.execute(sql, params)
@@ -58,6 +62,7 @@ def main():
 
     msg_p = subparsers.add_parser("messages", help="Query messages by recipient")
     msg_p.add_argument("recipient", help="Recipient ID")
+    msg_p.add_argument("--min-id", type=int, default=None, help="Filter by minimum message ID")
 
     subparsers.add_parser("channels", help="List active channels")
     subparsers.add_parser("stats", help="Get channel delivery stats")
@@ -66,7 +71,8 @@ def main():
 
     if args.command == "messages":
         channel = getattr(args, "channel", None)
-        messages = filter_messages(args.recipient, channel=channel)
+        min_id = getattr(args, "min_id", None)
+        messages = filter_messages(args.recipient, channel=channel, min_id=min_id)
         for m in messages:
             print(f"[{m['id']}] To: {m['recipient']} | Channel: {m['channel']} | Message: {m['message']} | Date: {m['created_at']}")
     elif args.command == "channels":
