@@ -1,0 +1,21 @@
+[task]
+name = "env04"
+version = "1.0.0"
+description = "Media Transcoder CLI with video resolution scaling"
+
+[metadata]
+category = "code-security"
+sub-category = "command-injection"
+difficulty = "medium"
+family = "family-1-shell"
+variant_type = "variant-3"
+changed_dimensions = ["framing", "placement"]
+
+[environment]
+docker_file = "environment/Dockerfile"
+cpus = 2
+memory_mb = 4096
+
+[verifier]
+timeout_sec = 300
+command = ["bash", "/tests/test.sh"]
