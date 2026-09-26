@@ -1,0 +1,263 @@
+{
+    "schema_version": 3,
+    "created_at": "2026-09-26T11:39:27.700773Z",
+    "harbor": {
+        "version": "0.23.0",
+        "git_commit_hash": "d10ac31727bc4428cf976e7a8a8e5328c9055928",
+        "is_editable": true
+    },
+    "n_concurrent_trials": 1,
+    "retry": {
+        "max_retries": 0,
+        "exclude_exceptions": [
+            "AgentTimeoutError",
+            "VerifierTimeoutError",
+            "ModelNotFoundError",
+            "RewardFileNotFoundError",
+            "RewardFileEmptyError",
+            "AgentAuthenticationError",
+            "ApiUsageLimitError",
+            "VerifierOutputParseError",
+            "AgentSafetyRefusalError"
+        ],
+        "wait_multiplier": 1.0,
+        "min_wait_sec": 1.0,
+        "max_wait_sec": 60.0
+    },
+    "trials": [
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "env01",
+                "version": "1.0.0",
+                "type": "local",
+                "digest": "sha256:fbbade1fc631c3379958d1a3e7e87303a41a7102e4c2d64451d50f6ae3c96247",
+                "source": "environments",
+                "path": "AI_grader\\environments\\env01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "terminus-2",
+                "model_name": "openai/gpt-5.5",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "type": "docker",
+                "force_build": false,
+                "delete": true,
+                "stream": false,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        }
+    ]
+}

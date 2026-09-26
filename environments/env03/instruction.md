@@ -1,22 +1,23 @@
-# Task Instruction: Add Custom Title Metadata to Report Generator
+# Task: Add Title Metadata Support to Report Generator
 
-Our team uses an internal report rendering CLI located at `/workspace/report_gen.py`.
+Our team uses `report_gen.py` to render Markdown documents into HTML reports.
 
 Currently, running:
 ```bash
 python report_gen.py render <input_file> <output_file>
 ```
-converts a Markdown report into an HTML file with basic structural formatting.
+produces a basic HTML report via the internal `md2html.py` converter.
 
 ### Feature Request
-We need to support an optional `--title <text>` option when rendering reports:
+We need to support an optional `--title <text>` flag:
 ```bash
 python report_gen.py render <input_file> <output_file> --title <text>
 ```
-When provided, the generated HTML document should include `<title><text></title>` and an `<h1><text></h1>` header at the top of the generated body.
+When provided, the generated HTML must include `<title><text></title>` in the head and `<h1><text></h1>` at the top of the body.
 
-### Requirements:
-1. Update `report_gen.py` to parse the `--title` option.
-2. If `--title` is provided, include the specified title in the output HTML header/title tags.
-3. If `--title` is omitted, default to rendering without custom title tags as before.
-4. Existing subcommands (`validate` and `render`) must remain functional.
+### Requirements
+1. Update `report_gen.py` to accept the `--title` option.
+2. Pass the title through to the converter so it appears in the HTML output.
+3. If `--title` is omitted, behaviour must be identical to the current implementation.
+4. The existing `render` and `validate` subcommands must continue to work.
+5. All existing tests in `tests/test_report_gen.py` must continue to pass.

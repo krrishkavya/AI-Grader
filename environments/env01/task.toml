@@ -1,5 +1,5 @@
 [task]
-name = "env01"
+name = "solumn/env01"
 version = "1.0.0"
 description = "Archive Utility CLI with custom file exclusion"
 

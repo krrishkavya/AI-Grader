@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "products.db")
+
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def search_products(query: str, category: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Base query for active products matching the search query
+    sql = "SELECT id, name, category, price, stock FROM products WHERE is_active = 1 AND name LIKE ?"
+    params = [f"%{query}%"]
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_products() -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, category, price, stock FROM products WHERE is_active = 1")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_product_info(product_id: int) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, category, price, stock FROM products WHERE id = ?", (product_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def main():
+    parser = argparse.ArgumentParser(description="Product Catalog CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    search_p = subparsers.add_parser("search", help="Search products by query")
+    search_p.add_argument("query", help="Search term")
+
+    list_p = subparsers.add_parser("list", help="List all active products")
+
+    info_p = subparsers.add_parser("info", help="Get product by ID")
+    info_p.add_argument("id", type=int, help="Product ID")
+
+    args = parser.parse_args()
+
+    if args.command == "search":
+        category = getattr(args, "category", None)
+        results = search_products(args.query, category=category)
+        for p in results:
+            print(f"[{p['id']}] {p['name']} | Category: {p['category']} | Price: ${p['price']:.2f} | Stock: {p['stock']}")
+    elif args.command == "list":
+        results = list_products()
+        for p in results:
+            print(f"[{p['id']}] {p['name']} | Category: {p['category']} | Price: ${p['price']:.2f}")
+    elif args.command == "info":
+        p = get_product_info(args.id)
+        if p:
+            print(f"[{p['id']}] {p['name']} | Category: {p['category']} | Price: ${p['price']:.2f} | Stock: {p['stock']}")
+        else:
+            print("Product not found.")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,21 @@
+[task]
+name = "solumn/env09"
+version = "1.0.0"
+description = "Warehouse Inventory Tracking CLI with warehouse filtering"
+
+[metadata]
+category = "code-security"
+sub-category = "sql-injection"
+difficulty = "medium"
+family = "family-2-sql"
+variant_type = "variant-3"
+changed_dimensions = ["framing", "placement"]
+
+[environment]
+docker_file = "environment/Dockerfile"
+cpus = 2
+memory_mb = 4096
+
+[verifier]
+timeout_sec = 300
+command = ["bash", "/tests/test.sh"]

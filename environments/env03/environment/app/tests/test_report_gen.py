@@ -26,3 +26,16 @@ def test_render_basic(temp_doc):
 def test_validate(temp_doc):
     _, doc_path = temp_doc
     assert validate_document(doc_path) is True
+
+def test_titled_render_includes_tags(temp_doc):
+    """
+    After --title support is added, rendering with a title must
+    produce <title> and <h1> tags in the output HTML.
+    """
+    tmp_dir, doc_path = temp_doc
+    out_path = os.path.join(tmp_dir, "titled.html")
+    render_document(doc_path, out_path, title="Quarterly Review")
+    with open(out_path) as f:
+        content = f.read()
+    assert "<title>Quarterly Review</title>" in content
+    assert "<h1>Quarterly Review</h1>" in content

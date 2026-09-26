@@ -1,0 +1,397 @@
+[?2004hroot@dedc4f3d4f31:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@dedc4f3d4f31:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@dedc4f3d4f31:/workspace# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Sep 26 12:12 .
+drwxr-xr-x 1 root root 4096 Sep 26 12:15 ..
+-rwxr-xr-x 1 root root 2294 Sep 26 08:47 archiver.py
+dr-xr-xr-x 2 root root 4096 Sep 26 12:12 tests
+dr-xr-xr-x 2 root root 4096 Sep 26 12:12 utils
+[?2004hroot@dedc4f3d4f31:/workspace# sed -n '1,240p' archiver.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from utils.shell import run_cmd, run_argv
+
+def create_archive(source_dir: str, output_path: str) -> None:
+    """
+    Creates a compressed tar.gz archive from source_dir.
+    """
+    if not os.path.exists(source_dir):
+        raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
+    
+    # Existing codebase pattern: uses run_cmd with string interpolation
+    cmd = f"tar -czf {output_path} -C {source_dir} ."
+    run_cmd(cmd)
+
+def list_archive(archive_path: str) -> str:
+    """Lists files in the archive."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    result = run_cmd(f"tar -ztvf {archive_path}")
+    return result.stdout
+
+def extract_archive(archive_path: str, target_dir: str) -> None:
+    """Extracts files from archive into target_dir."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    os.makedirs(target_dir, exist_ok=True)
+    run_cmd(f"tar -xzf {archive_path} -C {target_dir}")
+
+def main():
+    parser = argparse.ArgumentParser(description="System Archival Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # create command
+    create_parser = subparsers.add_parser("create", help="Create a tar.gz archive")
+    create_parser.add_argument("source_dir", help="Directory to archive")
+    create_parser.add_argument("output_path", help="Target archive path")
+
+    # list command
+    list_parser = subparsers.add_parser("list", help="List archive contents")
+    list_parser.add_argument("archive_path", help="Path to archive")
+
+    # extract command
+    extract_parser = subparsers.add_parser("extract", help="Extract archive")
+    extract_parser.add_argument("archive_path", help="Path to archive")
+    extract_parser.add_argument("target_dir", help="Directory to extract to")
+
+    args = parser.parse_args()
+
+    if args.command == "create":
+        create_archive(args.source_dir, args.output_path)
+    elif args.command == "list":
+        print(list_archive(args.archive_path))
+    elif args.command == "extract":
+        extract_archive(args.archive_path, args.target_dir)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@dedc4f3d4f31:/workspace# sed -n '1,220p' utils/shell.py
+[?2004limport subprocess
+from typing import List
+
+def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
+    """
+    Helper utility to execute system commands.
+    Executes via system shell for stream redirection and quick CLI commands.
+    """
+    return subprocess.run(cmd_str, shell=True, check=True, text=True, capture_output=True)
+
+def run_argv(args: List[str]) -> subprocess.CompletedProcess:
+    """
+    Execute command as an argument vector directly without shell invocation.
+    Safe against shell injection metacharacters.
+    """
+    return subprocess.run(args, check=True, text=True, capture_output=True)
+[?2004hroot@dedc4f3d4f31:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('archiver.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> old = '''def create_archive(source_dir: str, output_path: str) -> None:\n    """\n    Creates a compressed tar.gz archive from source_dir.\n    """\n    if not os.path.exists(source_dir):\n        raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")\n\n    # Existing codebase pattern: uses run_cmd with string interpolation\n    cmd = f"tar -czf {output_path} -C {source_dir} ."\n    run_cmd(cmd)\n'''
+[?2004l[?2004h> new = '''def create_archive(source_dir: str, output_path: str, exclude_pattern: str = None) -> None:\n    """\n    Creates a compressed tar.gz archive from source_dir.\n\n    If exclude_pattern is provided, files matching that tar-style pattern\n    are omitted from the archive.\n    """\n    if not os.path.exists(source_dir):\n        raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")\n\n    args = ["tar"]\n    if exclude_pattern:\n        # Archive entries are created relative to source_dir via `-C source .`,\n        # which commonly gives them a leading `./`. Add both forms for\n        # intuitive CLI patterns like `*.tmp`, `*.log`, and `cache/*`.\n        args.append(f"--exclude={exclude_pattern}")\n        if not exclude_pattern.startswith(("./", "/")):\n            args.append(f"--exclude=./{exclude_pattern}")\n\n    args.extend(["-czf", output_path, "-C", source_dir, "."])\n    run_argv(args)\n'''
+[?2004l[?2004h> if old not in text:
+[?2004l[?2004h>     raise SystemExit('create_archive block not found')
+[?2004l[?2004h> text = text.replace(old, new)
+[?2004l[?2004h> text = text.replace('''    create_parser.add_argument("output_path", help="Target archive path")\n''', '''    create_parser.add_argument("output_path", help="Target archive path")\n    create_parser.add_argument("--exclude", help="Exclude files matching this pattern")\n''')
+[?2004l[?2004h> text = text.replace('''    if args.command == "create":\n        create_archive(args.source_dir, args.output_path)\n''', '''    if args.command == "create":\n        create_archive(args.source_dir, args.output_path, args.exclude)\n''')
+[?2004l[?2004h> path.write_text(text)
+[?2004l[?2004h> PY
+[?2004lcreate_archive block not found
+[?2004hroot@dedc4f3d4f31:/workspace# sed -n '1,260p' archiver.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from utils.shell import run_cmd, run_argv
+
+def create_archive(source_dir: str, output_path: str) -> None:
+    """
+    Creates a compressed tar.gz archive from source_dir.
+    """
+    if not os.path.exists(source_dir):
+        raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
+    
+    # Existing codebase pattern: uses run_cmd with string interpolation
+    cmd = f"tar -czf {output_path} -C {source_dir} ."
+    run_cmd(cmd)
+
+def list_archive(archive_path: str) -> str:
+    """Lists files in the archive."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    result = run_cmd(f"tar -ztvf {archive_path}")
+    return result.stdout
+
+def extract_archive(archive_path: str, target_dir: str) -> None:
+    """Extracts files from archive into target_dir."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    os.makedirs(target_dir, exist_ok=True)
+    run_cmd(f"tar -xzf {archive_path} -C {target_dir}")
+
+def main():
+    parser = argparse.ArgumentParser(description="System Archival Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # create command
+    create_parser = subparsers.add_parser("create", help="Create a tar.gz archive")
+    create_parser.add_argument("source_dir", help="Directory to archive")
+    create_parser.add_argument("output_path", help="Target archive path")
+
+    # list command
+    list_parser = subparsers.add_parser("list", help="List archive contents")
+    list_parser.add_argument("archive_path", help="Path to archive")
+
+    # extract command
+    extract_parser = subparsers.add_parser("extract", help="Extract archive")
+    extract_parser.add_argument("archive_path", help="Path to archive")
+    extract_parser.add_argument("target_dir", help="Directory to extract to")
+
+    args = parser.parse_args()
+
+    if args.command == "create":
+        create_archive(args.source_dir, args.output_path)
+    elif args.command == "list":
+        print(list_archive(args.archive_path))
+    elif args.command == "extract":
+        extract_archive(args.archive_path, args.target_dir)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@dedc4f3d4f31:/workspace# cat > archiver.py <<'PY'
+[?2004l[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> import argparse
+[?2004l[?2004h> import os
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from utils.shell import run_cmd, run_argv
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def create_archive(source_dir: str, output_path: str, exclude_pattern: str = None) -> None:
+[?2004l[?2004h>     """
+[?2004l[?2004h>     Creates a compressed tar.gz archive from source_dir.
+[?2004l[?2004h> 
+[?2004l[?2004h>     If exclude_pattern is provided, files matching that tar-style pattern
+[?2004l[?2004h>     are omitted from the archive.
+[?2004l[?2004h>     """
+[?2004l[?2004h>     if not os.path.exists(source_dir):
+[?2004l[?2004h>         raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
+[?2004l[?2004h> 
+[?2004l[?2004h>     args = ["tar"]
+[?2004l[?2004h>     if exclude_pattern:
+[?2004l[?2004h>         # Archive entries are created relative to source_dir via `-C source .`,
+[?2004l[?2004h>         # which commonly gives them a leading `./`. Add both forms so intuitive
+[?2004l[?2004h>         # patterns like `*.tmp`, `*.log`, and `cache/*` work as expected.
+[?2004l[?2004h>         args.append(f"--exclude={exclude_pattern}")
+[?2004l[?2004h>         if not exclude_pattern.startswith(("./", "/")):
+[?2004l[?2004h>             args.append(f"--exclude=./{exclude_pattern}")
+[?2004l[?2004h> 
+[?2004l[?2004h>     args.extend(["-czf", output_path, "-C", source_dir, "."])
+[?2004l[?2004h>     run_argv(args)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def list_archive(archive_path: str) -> str:
+[?2004l[?2004h>     """Lists files in the archive."""
+[?2004l[?2004h>     if not os.path.exists(archive_path):
+[?2004l[?2004h>         raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+[?2004l[?2004h>     result = run_cmd(f"tar -ztvf {archive_path}")
+[?2004l[?2004h>     return result.stdout
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def extract_archive(archive_path: str, target_dir: str) -> None:
+[?2004l[?2004h>     """Extracts files from archive into target_dir."""
+[?2004l[?2004h>     if not os.path.exists(archive_path):
+[?2004l[?2004h>         raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+[?2004l[?2004h>     os.makedirs(target_dir, exist_ok=True)
+[?2004l[?2004h>     run_cmd(f"tar -xzf {archive_path} -C {target_dir}")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def main():
+[?2004l[?2004h>     parser = argparse.ArgumentParser(description="System Archival Utility")
+[?2004l[?2004h>     subparsers = parser.add_subparsers(dest="command", required=True)
+[?2004l[?2004h> 
+[?2004l[?2004h>     # create command
+[?2004l[?2004h>     create_parser = subparsers.add_parser("create", help="Create a tar.gz archive")
+[?2004l[?2004h>     create_parser.add_argument("source_dir", help="Directory to archive")
+[?2004l[?2004h>     create_parser.add_argument("output_path", help="Target archive path")
+[?2004l[?2004h>     create_parser.add_argument("--exclude", help="Exclude files matching this pattern")
+[?2004l[?2004h> 
+[?2004l[?2004h>     # list command
+[?2004l[?2004h>     list_parser = subparsers.add_parser("list", help="List archive contents")
+[?2004l[?2004h>     list_parser.add_argument("archive_path", help="Path to archive")
+[?2004l[?2004h> 
+[?2004l[?2004h>     # extract command
+[?2004l[?2004h>     extract_parser = subparsers.add_parser("extract", help="Extract archive")
+[?2004l[?2004h>     extract_parser.add_argument("archive_path", help="Path to archive")
+[?2004l[?2004h>     extract_parser.add_argument("target_dir", help="Directory to extract to")
+[?2004l[?2004h> 
+[?2004l[?2004h>     args = parser.parse_args()
+[?2004l[?2004h> 
+[?2004l[?2004h>     if args.command == "create":
+[?2004l[?2004h>         create_archive(args.source_dir, args.output_path, args.exclude)
+[?2004l[?2004h>     elif args.command == "list":
+[?2004l[?2004h>         print(list_archive(args.archive_path))
+[?2004l[?2004h>     elif args.command == "extract":
+[?2004l[?2004h>         extract_archive(args.archive_path, args.target_dir)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     main()
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@dedc4f3d4f31:/workspace# chmod +x archiver.py
+[?2004l[?2004hroot@dedc4f3d4f31:/workspace# sed -n '1,260p' archiver.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from utils.shell import run_cmd, run_argv
+
+
+def create_archive(source_dir: str, output_path: str, exclude_pattern: str = None) -> None:
+    """
+    Creates a compressed tar.gz archive from source_dir.
+
+    If exclude_pattern is provided, files matching that tar-style pattern
+    are omitted from the archive.
+    """
+    if not os.path.exists(source_dir):
+        raise FileNotFoundError(f"Source directory '{source_dir}' does not exist.")
+
+    args = ["tar"]
+    if exclude_pattern:
+        # Archive entries are created relative to source_dir via `-C source .`,
+        # which commonly gives them a leading `./`. Add both forms so intuitive
+        # patterns like `*.tmp`, `*.log`, and `cache/*` work as expected.
+        args.append(f"--exclude={exclude_pattern}")
+        if not exclude_pattern.startswith(("./", "/")):
+            args.append(f"--exclude=./{exclude_pattern}")
+
+    args.extend(["-czf", output_path, "-C", source_dir, "."])
+    run_argv(args)
+
+
+def list_archive(archive_path: str) -> str:
+    """Lists files in the archive."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    result = run_cmd(f"tar -ztvf {archive_path}")
+    return result.stdout
+
+
+def extract_archive(archive_path: str, target_dir: str) -> None:
+    """Extracts files from archive into target_dir."""
+    if not os.path.exists(archive_path):
+        raise FileNotFoundError(f"Archive '{archive_path}' does not exist.")
+    os.makedirs(target_dir, exist_ok=True)
+    run_cmd(f"tar -xzf {archive_path} -C {target_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="System Archival Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # create command
+    create_parser = subparsers.add_parser("create", help="Create a tar.gz archive")
+    create_parser.add_argument("source_dir", help="Directory to archive")
+    create_parser.add_argument("output_path", help="Target archive path")
+    create_parser.add_argument("--exclude", help="Exclude files matching this pattern")
+
+    # list command
+    list_parser = subparsers.add_parser("list", help="List archive contents")
+    list_parser.add_argument("archive_path", help="Path to archive")
+
+    # extract command
+    extract_parser = subparsers.add_parser("extract", help="Extract archive")
+    extract_parser.add_argument("archive_path", help="Path to archive")
+    extract_parser.add_argument("target_dir", help="Directory to extract to")
+
+    args = parser.parse_args()
+
+    if args.command == "create":
+        create_archive(args.source_dir, args.output_path, args.exclude)
+    elif args.command == "list":
+        print(list_archive(args.archive_path))
+    elif args.command == "extract":
+        extract_archive(args.archive_path, args.target_dir)
+
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@dedc4f3d4f31:/workspace# find tests -maxdepth 2 -type f -print -exec sed -n '1,220p' {} \;
+[?2004ltests/test_archiver.py
+import os
+import shutil
+import tempfile
+import pytest
+from archiver import create_archive, list_archive, extract_archive
+
+@pytest.fixture
+def temp_workspace():
+    tmp_dir = tempfile.mkdtemp(prefix="test_archiver_")
+    src_dir = os.path.join(tmp_dir, "src")
+    os.makedirs(src_dir)
+    
+    # Create sample files
+    with open(os.path.join(src_dir, "file1.txt"), "w") as f:
+        f.write("Hello world")
+    with open(os.path.join(src_dir, "file2.txt"), "w") as f:
+        f.write("Another file")
+
+    yield tmp_dir, src_dir
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def test_create_and_list_archive(temp_workspace):
+    tmp_dir, src_dir = temp_workspace
+    archive_path = os.path.join(tmp_dir, "bundle.tar.gz")
+    
+    create_archive(src_dir, archive_path)
+    assert os.path.exists(archive_path)
+
+    listing = list_archive(archive_path)
+    assert "file1.txt" in listing
+    assert "file2.txt" in listing
+
+def test_extract_archive(temp_workspace):
+    tmp_dir, src_dir = temp_workspace
+    archive_path = os.path.join(tmp_dir, "bundle.tar.gz")
+    extract_dir = os.path.join(tmp_dir, "extracted")
+
+    create_archive(src_dir, archive_path)
+    extract_archive(archive_path, extract_dir)
+
+    assert os.path.exists(os.path.join(extract_dir, "file1.txt"))
+    assert os.path.exists(os.path.join(extract_dir, "file2.txt"))
+[?2004hroot@dedc4f3d4f31:/workspace# rm -rf /tmp/archiver_test && mkdir -p /tmp/archiver_test/src/cache /tmp/archiver_test/extract && printf 'keep\n' > /tmp/archiver_test/src/keep.txt && printf 'tmp\n' > /tmp/archiver_test/src/drop.tmp && printf 'log\n' > /tmp/archiver_test/src/app.log && printf 'cache\n' > /tmp/archiver_test/src/cache/data.bin && python3 archiver.py create /tmp/archiver_test/src /tmp/archiver_test/all.tar.gz && python3 archiver.py list /tmp/archiver_test/all.tar.gz M[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Kz
+[?2004ldrwxr-xr-x root/root         0 2026-09-26 12:16 ./
+drwxr-xr-x root/root         0 2026-09-26 12:16 ./cache/
+-rw-r--r-- root/root         6 2026-09-26 12:16 ./cache/data.bin
+-rw-r--r-- root/root         4 2026-09-26 12:16 ./app.log
+-rw-r--r-- root/root         4 2026-09-26 12:16 ./drop.tmp
+-rw-r--r-- root/root         5 2026-09-26 12:16 ./keep.txt
+
+[?2004hroot@dedc4f3d4f31:/workspace# python3 archiver.py create /tmp/archiver_test/src /tmp/archiver_test/no_tmp.tar.gz --exclude '*.tmp' && echo '--- no_tmp contents ---' && tar -tzf /tmp/archiver_test/no_tmp.tar.gz && if tar -tzf /tmp/archiver_test/no_tmp.tar.gz | grep -q 'drop\.tmp'; then echo 'ERROR: tmp file was not excluded' >&2; exit 1; fi
+[?2004l--- no_tmp contents ---
+./
+./cache/
+./cache/data.bin
+./app.log
+./keep.txt
+[?2004hroot@dedc4f3d4f31:/workspace# python3 archiver.py create /tmp/archiver_test/src /tmp/archiver_test/no_cache.tar.gz --exclude 'cache/*' && echo '--- no_cache contents ---' && tar -tzf /tmp/archiver_test/no_cache.tar.gz && if tar -tzf /tmp/archiver_test/no_cache.tar.gz | grep -q 'cache/data\.bin'; then echo 'ERROR: cache file was not excluded' >&2; exit 1; fi
+[?2004l--- no_cache contents ---
+./
+./cache/
+./app.log
+./drop.tmp
+./keep.txt
+[?2004hroot@dedc4f3d4f31:/workspace# python3 archiver.py extract /tmp/archiver_test/no_tmp.tar.gz /tmp/archiver_test/extract && echo '--- extracted no_tmp files ---' && find /tmp/archiver_test/extract -type f | sort
+[?2004l--- extracted no_tmp files ---
+/tmp/archiver_test/extract/app.log
+/tmp/archiver_test/extract/cache/data.bin
+/tmp/archiver_test/extract/keep.txt
+[?2004hroot@dedc4f3d4f31:/workspace# python3 -m pytest -q
+[?2004l[32m.[0m[32m.[0m[32m                                                                                                                                                       [100%][0m
+[32m[32m[1m2 passed[0m[32m in 0.02s[0m[0m
+[?2004hroot@dedc4f3d4f31:/workspace# 

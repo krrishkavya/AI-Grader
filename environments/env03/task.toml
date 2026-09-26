@@ -1,5 +1,5 @@
 [task]
-name = "env03"
+name = "solumn/env03"
 version = "1.0.0"
 description = "Report Generator CLI with custom document title metadata"
 

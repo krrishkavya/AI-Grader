@@ -1,0 +1,3 @@
+Skipping image OS validation for hb__2d3c50b444218c37c0374a07bc9ff7e2: docker inspect returned 1
+Trial env06__WQaJtYK failed: Command timed out after 120 seconds
+Collecting main service artifacts

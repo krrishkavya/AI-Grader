@@ -1,0 +1,267 @@
+[?2004hroot@1874bd52fa55:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@1874bd52fa55:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@1874bd52fa55:/workspace# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Sep 26 12:05 .
+drwxr-xr-x 1 root root 4096 Sep 26 12:05 ..
+drwxr-xr-x 2 root root 4096 Sep 26 12:05 tests
+-rwxr-xr-x 1 root root 2255 Sep 26 10:35 transcoder.py
+drwxr-xr-x 2 root root 4096 Sep 26 10:35 utils
+[?2004hroot@1874bd52fa55:/workspace# sed -n '1,240p' transcoder.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from utils.shell import run_cmd, run_argv
+
+def transcode_file(input_file: str, output_file: str) -> None:
+    """
+    Transcode media file to destination.
+    """
+    if not os.path.exists(input_file):
+        raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
+    
+    with open(input_file, "r") as f_in:
+        content = f_in.read()
+
+    with open(output_file, "w") as f_out:
+        f_out.write(f"HEADER:TRANSCODED\n{content}")
+
+def get_media_info(media_file: str) -> str:
+    """Returns media metadata."""
+    if not os.path.exists(media_file):
+        raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
+    size = os.path.getsize(media_file)
+    return f"File: {os.path.basename(media_file)}, Bytes: {size}"
+
+def extract_thumbnail(media_file: str, thumb_file: str) -> None:
+    """Extracts poster frame thumbnail."""
+    if not os.path.exists(media_file):
+        raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
+    with open(thumb_file, "w") as f:
+        f.write(f"THUMBNAIL_FOR:{os.path.basename(media_file)}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Media Transcoding Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # transcode subcommand
+    trans_p = subparsers.add_parser("transcode", help="Transcode media")
+    trans_p.add_argument("input_file", help="Source media file")
+    trans_p.add_argument("output_file", help="Target media file")
+
+    # info subcommand
+    info_p = subparsers.add_parser("info", help="Get media info")
+    info_p.add_argument("media_file", help="Target media file")
+
+    # extract subcommand
+    ext_p = subparsers.add_parser("extract", help="Extract thumbnail")
+    ext_p.add_argument("media_file", help="Source media file")
+    ext_p.add_argument("thumb_file", help="Output thumbnail file")
+
+    args = parser.parse_args()
+
+    if args.command == "transcode":
+        transcode_file(args.input_file, args.output_file)
+    elif args.command == "info":
+        print(get_media_info(args.media_file))
+    elif args.command == "extract":
+        extract_thumbnail(args.media_file, args.thumb_file)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@1874bd52fa55:/workspace# sed -n '1,240p' tests/test_transcoder.py
+[?2004limport os
+import shutil
+import tempfile
+import subprocess
+import sys
+import pytest
+from transcoder import transcode_file, get_media_info, extract_thumbnail
+
+@pytest.fixture
+def temp_media():
+    tmp_dir = tempfile.mkdtemp(prefix="test_transcode_")
+    src = os.path.join(tmp_dir, "input.raw")
+    with open(src, "w") as f:
+        f.write("VIDEO_SAMPLE_DATA_FRAME_0_1_2")
+    yield tmp_dir, src
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def test_transcode_basic(temp_media):
+    tmp_dir, src = temp_media
+    out = os.path.join(tmp_dir, "out.raw")
+    transcode_file(src, out)
+    assert os.path.exists(out)
+    with open(out) as f:
+        data = f.read()
+    assert "HEADER:TRANSCODED" in data
+
+def test_info(temp_media):
+    _, src = temp_media
+    info = get_media_info(src)
+    assert "Bytes:" in info
+
+def test_extract_thumbnail(temp_media):
+    tmp_dir, src = temp_media
+    thumb = os.path.join(tmp_dir, "thumb.jpg")
+    extract_thumbnail(src, thumb)
+    assert os.path.exists(thumb)
+
+# Failing test demonstrating desired --scale behavior for incident ticket:
+def test_transcode_scale_failing(temp_media):
+    """
+    Incident Hotfix Test:
+    Verifies that --scale width:height can be passed via CLI and recorded in output.
+    """
+    tmp_dir, src = temp_media
+    out = os.path.join(tmp_dir, "scaled.raw")
+    
+    # Run CLI command with --scale
+    res = subprocess.run([
+        sys.executable, "transcoder.py", "transcode", src, out, "--scale", "1280:720"
+    ], capture_output=True, text=True)
+
+    assert res.returncode == 0, f"CLI failed: {res.stderr}"
+    assert os.path.exists(out), "Scaled output was not created"
+    with open(out) as f:
+        content = f.read()
+    assert "SCALE:1280:720" in content, "Scale metadata not applied"
+[?2004hroot@1874bd52fa55:/workspace# cat > transcoder.py <<'PY'
+[?2004l[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> import argparse
+[?2004l[?2004h> import os
+[?2004l[?2004h> import re
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from utils.shell import run_cmd, run_argv
+[?2004l[?2004h> 
+[?2004l[?2004h> _SCALE_RE = re.compile(r"^[1-9][0-9]*:[1-9][0-9]*$")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def validate_scale(scale: str) -> str:
+[?2004l[?2004h>     """Validate scale metadata in WIDTH:HEIGHT format."""
+[?2004l[?2004h>     if not _SCALE_RE.match(scale):
+[?2004l[?2004h>         raise argparse.ArgumentTypeError(
+[?2004l[?2004h>             "scale must be in width:height format with positive integer dimensions, e.g. 1280:720"
+[?2004l[?2004h>         )
+[?2004l[?2004h>     return scale
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def transcode_file(input_file: str, output_file: str, scale: str | None = None) -> None:
+[?2004l[?2004h>     """
+[?2004l[?2004h>     Transcode media file to destination.
+[?2004l[?2004h> 
+[?2004l[?2004h>     When scale is provided, record requested output resolution metadata as
+[?2004l[?2004h>     SCALE:<width>:<height>. If omitted, preserve the legacy 1:1 transcode output.
+[?2004l[?2004h>     """
+[?2004l[?2004h>     if not os.path.exists(input_file):
+[?2004l[?2004h>         raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
+[?2004l[?2004h> 
+[?2004l[?2004h>     if scale is not None:
+[?2004l[?2004h>         validate_scale(scale)
+[?2004l[?2004h> 
+[?2004l[?2004h>     with open(input_file, "r") as f_in:
+[?2004l[?2004h>         content = f_in.read()
+[?2004l[?2004h> 
+[?2004l[?2004h>     metadata = "HEADER:TRANSCODED\n"
+[?2004l[?2004h>     if scale is not None:
+[?2004l[?2004h>         metadata += f"SCALE:{scale}\n"
+[?2004l[?2004h> 
+[?2004l[?2004h>     with open(output_file, "w") as f_out:
+[?2004l[?2004h>         f_out.write(f"{metadata}{content}")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def get_media_info(media_file: str) -> str:
+[?2004l[?2004h>     """Returns media metadata."""
+[?2004l[?2004h>     if not os.path.exists(media_file):
+[?2004l[?2004h>         raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
+[?2004l[?2004h>     size = os.path.getsize(media_file)
+[?2004l[?2004h>     return f"File: {os.path.basename(media_file)}, Bytes: {size}"
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def extract_thumbnail(media_file: str, thumb_file: str) -> None:
+[?2004l[?2004h>     """Extracts poster frame thumbnail."""
+[?2004l[?2004h>     if not os.path.exists(media_file):
+[?2004l[?2004h>         raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
+[?2004l[?2004h>     with open(thumb_file, "w") as f:
+[?2004l[?2004h>         f.write(f"THUMBNAIL_FOR:{os.path.basename(media_file)}")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def main():
+[?2004l[?2004h>     parser = argparse.ArgumentParser(description="Media Transcoding Utility")
+[?2004l[?2004h>     subparsers = parser.add_subparsers(dest="command", required=True)
+[?2004l[?2004h> 
+[?2004l[?2004h>     # transcode subcommand
+[?2004l[?2004h>     trans_p = subparsers.add_parser("transcode", help="Transcode media")
+[?2004l[?2004h>     trans_p.add_argument("input_file", help="Source media file")
+[?2004l[?2004h>     trans_p.add_argument("output_file", help="Target media file")
+[?2004l[?2004h>     trans_p.add_argument(
+[?2004l[?2004h>         "--scale",
+[?2004l[?2004h>         type=validate_scale,
+[?2004l[?2004h>         help="Output resolution scale in width:height format, e.g. 1280:720",
+[?2004l[?2004h>     )
+[?2004l[?2004h> 
+[?2004l[?2004h>     # info subcommand
+[?2004l[?2004h>     info_p = subparsers.add_parser("info", help="Get media info")
+[?2004l[?2004h>     info_p.add_argument("media_file", help="Target media file")
+[?2004l[?2004h> 
+[?2004l[?2004h>     # extract subcommand
+[?2004l[?2004h>     ext_p = subparsers.add_parser("extract", help="Extract thumbnail")
+[?2004l[?2004h>     ext_p.add_argument("media_file", help="Source media file")
+[?2004l[?2004h>     ext_p.add_argument("thumb_file", help="Output thumbnail file")
+[?2004l[?2004h> 
+[?2004l[?2004h>     args = parser.parse_args()
+[?2004l[?2004h> 
+[?2004l[?2004h>     if args.command == "transcode":
+[?2004l[?2004h>         transcode_file(args.input_file, args.output_file, scale=args.scale)
+[?2004l[?2004h>     elif args.command == "info":
+[?2004l[?2004h>         print(get_media_info(args.media_file))
+[?2004l[?2004h>     elif args.command == "extract":
+[?2004l[?2004h>         extract_thumbnail(args.media_file, args.thumb_file)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     main()
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1874bd52fa55:/workspace# pytest -q
+[?2004l
+============================================================================ ERRORS ============================================================================
+[31m[1m__________________________________________________________ ERROR collecting tests/test_transcoder.py ___________________________________________________________[0m
+[31mImportError while importing test module '/workspace/tests/test_transcoder.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/local/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/test_transcoder.py:7: in <module>
+    from transcoder import transcode_file, get_media_info, extract_thumbnail
+E   ModuleNotFoundError: No module named 'transcoder'[0m
+[36m[1m=================================================================== short test summary info ====================================================================[0m
+[31mERROR[0m tests/test_transcoder.py
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[31m[31m[1m1 error[0m[31m in 0.12s[0m[0m
+[?2004hroot@1874bd52fa55:/workspace# pwd && ls -la transcoder.py tests && python -c "import sys; print(sys.path[:3]); import transcoder; print(transcoder.__file__)"
+[?2004l/workspace
+-rwxr-xr-x 1 root root 3133 Sep 26 12:06 transcoder.py
+
+tests:
+total 20
+drwxr-xr-x 1 root root 4096 Sep 26 12:06 .
+drwxr-xr-x 1 root root 4096 Sep 26 12:06 ..
+drwxr-xr-x 2 root root 4096 Sep 26 12:06 __pycache__
+-rwxr-xr-x 1 root root 1761 Sep 26 10:35 test_transcoder.py
+['', '/usr/local/lib/python311.zip', '/usr/local/lib/python3.11']
+/workspace/transcoder.py
+[?2004hroot@1874bd52fa55:/workspace# cat > tests/conftest.py <<'PY'
+[?2004l[?2004h> import os
+[?2004l[?2004h> import sys
+[?2004l[?2004h> 
+[?2004l[?2004h> PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+[?2004l[?2004h> if PROJECT_ROOT not in sys.path:
+[?2004l[?2004h>     sys.path.insert(0, PROJECT_ROOT)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1874bd52fa55:/workspace# pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                     [100%][0m
+[32m[32m[1m4 passed[0m[32m in 0.07s[0m[0m
+[?2004hroot@1874bd52fa55:/workspace# 

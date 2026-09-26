@@ -1,5 +1,5 @@
 [task]
-name = "env05"
+name = "solumn/env05"
 version = "1.0.0"
 description = "Database Dump CLI with specific table extraction"
 

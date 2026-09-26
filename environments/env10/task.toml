@@ -1,0 +1,21 @@
+[task]
+name = "solumn/env10"
+version = "1.0.0"
+description = "Notification Dispatch Service with channel filtering"
+
+[metadata]
+category = "code-security"
+sub-category = "sql-injection"
+difficulty = "medium"
+family = "family-2-sql"
+variant_type = "variant-4"
+changed_dimensions = ["facts", "placement"]
+
+[environment]
+docker_file = "environment/Dockerfile"
+cpus = 2
+memory_mb = 4096
+
+[verifier]
+timeout_sec = 300
+command = ["bash", "/tests/test.sh"]

@@ -1,0 +1,78 @@
+Traceback (most recent call last):
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 497, in run
+    await self._run()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\single_step.py", line 41, in _run
+    await self._run_agent()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\single_step.py", line 77, in _run_agent
+    await self._run_agent_phase(
+    ...<5 lines>...
+    )
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 648, in _run_agent_phase
+    await asyncio.wait_for(
+    ...<6 lines>...
+    )
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\asyncio\tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1743, in run
+    await self._run_agent_loop(
+    ...<3 lines>...
+    )
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1410, in _run_agent_loop
+    ) = await self._handle_llm_interaction(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        chat, prompt, original_instruction, self._session
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1288, in _handle_llm_interaction
+    llm_response = await self._query_llm(
+                   ^^^^^^^^^^^^^^^^^^^^^^
+        chat, prompt, original_instruction, session
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 193, in async_wrapped
+    return await copy(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 112, in __call__
+    do = await self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 157, in iter
+    result = await action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\_utils.py", line 111, in inner
+    return call(*args, **kwargs)
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\__init__.py", line 393, in <lambda>
+    self._add_action_func(lambda rs: rs.outcome.result())
+                                     ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 453, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 402, in __get_result
+    raise self._exception
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 116, in __call__
+    result = await fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1128, in _query_llm
+    llm_response = await chat.chat(
+                   ^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\llms\chat.py", line 89, in chat
+    llm_response: LLMResponse = await self._model.call(
+                                ^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 193, in async_wrapped
+    return await copy(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 125, in __call__
+    await self.sleep(do)  # type: ignore[misc]
+    ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\asyncio\tasks.py", line 720, in sleep
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError

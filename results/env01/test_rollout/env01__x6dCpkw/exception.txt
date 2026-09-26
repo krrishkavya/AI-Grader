@@ -1,0 +1,183 @@
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\llms\openai\openai.py", line 921, in acompletion
+    openai_aclient: AsyncOpenAI = self._get_openai_client(
+                                  ~~~~~~~~~~~~~~~~~~~~~~~^
+        is_async=True,
+        ^^^^^^^^^^^^^^
+    ...<7 lines>...
+        shared_session=shared_session,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\llms\openai\openai.py", line 415, in _get_openai_client
+    else AsyncOpenAI(
+         ~~~~~~~~~~~^
+        api_key=api_key,
+        ^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        organization=organization,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\openai\_client.py", line 837, in __init__
+    raise OpenAIError(
+        "Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable."
+    )
+openai.OpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\main.py", line 648, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\main.py", line 713, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\llms\openai\openai.py", line 1006, in acompletion
+    raise OpenAIError(
+    ...<4 lines>...
+    )
+litellm.llms.openai.common_utils.OpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 497, in run
+    await self._run()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\single_step.py", line 41, in _run
+    await self._run_agent()
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\single_step.py", line 77, in _run_agent
+    await self._run_agent_phase(
+    ...<5 lines>...
+    )
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\trial\trial.py", line 648, in _run_agent_phase
+    await asyncio.wait_for(
+    ...<6 lines>...
+    )
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\asyncio\tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1743, in run
+    await self._run_agent_loop(
+    ...<3 lines>...
+    )
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1410, in _run_agent_loop
+    ) = await self._handle_llm_interaction(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        chat, prompt, original_instruction, self._session
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1288, in _handle_llm_interaction
+    llm_response = await self._query_llm(
+                   ^^^^^^^^^^^^^^^^^^^^^^
+        chat, prompt, original_instruction, session
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 193, in async_wrapped
+    return await copy(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 112, in __call__
+    do = await self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 157, in iter
+    result = await action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\_utils.py", line 111, in inner
+    return call(*args, **kwargs)
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 453, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 402, in __get_result
+    raise self._exception
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 116, in __call__
+    result = await fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1279, in _query_llm
+    raise e
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\agents\terminus_2\terminus_2.py", line 1128, in _query_llm
+    llm_response = await chat.chat(
+                   ^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\llms\chat.py", line 89, in chat
+    llm_response: LLMResponse = await self._model.call(
+                                ^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 193, in async_wrapped
+    return await copy(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 112, in __call__
+    do = await self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 157, in iter
+    result = await action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\_utils.py", line 111, in inner
+    return call(*args, **kwargs)
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 453, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 402, in __get_result
+    raise self._exception
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\tenacity\asyncio\__init__.py", line 116, in __call__
+    result = await fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\llms\lite_llm.py", line 406, in call
+    self._handle_litellm_error(e)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\llms\lite_llm.py", line 641, in _handle_litellm_error
+    raise e
+  File "C:\Users\DELL\OneDrive\Desktop\Solumn_sel_task\harbor\src\harbor\llms\lite_llm.py", line 370, in call
+    response = await litellm.acompletion(**completion_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\utils.py", line 2152, in wrapper_async
+    raise e
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\utils.py", line 1964, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\main.py", line 701, in acompletion
+    raise exception_type(
+          ~~~~~~~~~~~~~~^
+        model=model,
+        ^^^^^^^^^^^^
+    ...<3 lines>...
+        extra_kwargs=kwargs,
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2678, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2439, in exception_type
+    _map_openai_exception(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        model=model,
+        ^^^^^^^^^^^^
+    ...<5 lines>...
+        extra_information=extra_information,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python313\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 449, in _map_openai_exception
+    raise InternalServerError(
+    ...<5 lines>...
+    )
+litellm.exceptions.InternalServerError: litellm.InternalServerError: InternalServerError: OpenAIException - Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.

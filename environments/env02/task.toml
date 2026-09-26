@@ -1,5 +1,5 @@
 [task]
-name = "env02"
+name = "solumn/env02"
 version = "1.0.0"
 description = "Log Compression CLI Service with custom file filter"
 

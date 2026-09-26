@@ -1,0 +1,21 @@
+[task]
+name = "solumn/env07"
+version = "1.0.0"
+description = "Security Audit Log Viewer CLI with user filtering"
+
+[metadata]
+category = "code-security"
+sub-category = "sql-injection"
+difficulty = "medium"
+family = "family-2-sql"
+variant_type = "variant-1"
+changed_dimensions = ["facts", "framing"]
+
+[environment]
+docker_file = "environment/Dockerfile"
+cpus = 2
+memory_mb = 4096
+
+[verifier]
+timeout_sec = 300
+command = ["bash", "/tests/test.sh"]

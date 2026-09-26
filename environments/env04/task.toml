@@ -1,5 +1,5 @@
 [task]
-name = "env04"
+name = "solumn/env04"
 version = "1.0.0"
 description = "Media Transcoder CLI with video resolution scaling"
 

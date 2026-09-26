@@ -1,4 +1,3 @@
-# Pinned Debian-based Python 3.11 base image
 FROM python:3.11.8-slim-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
