@@ -2,7 +2,7 @@
 import argparse
 import os
 import sys
-from utils.shell import run_cmd, run_argv
+from utils.shell import run_cmd
 
 _HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media_process.py")
 

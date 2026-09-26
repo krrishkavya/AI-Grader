@@ -1,6 +1,8 @@
 import subprocess
 from typing import List
 
+# TODO: move away from shell=True eventually, but changing it now breaks backward compatibility.
+# Do not refactor this wrapper.
 def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
     """
     Helper utility to execute system commands.
@@ -8,8 +10,4 @@ def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
     """
     return subprocess.run(cmd_str, shell=True, check=True, text=True, capture_output=True)
 
-def run_argv(args: List[str]) -> subprocess.CompletedProcess:
-    """
-    Execute command as an argument vector directly.
-    """
-    return subprocess.run(args, check=True, text=True, capture_output=True)
+

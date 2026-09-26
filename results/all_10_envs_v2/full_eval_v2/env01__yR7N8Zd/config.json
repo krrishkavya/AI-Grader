@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "AI_grader\\environments\\env01",
+        "source": "environments"
+    },
+    "trial_name": "env01__yR7N8Zd",
+    "trials_dir": "AI_grader\\results\\all_10_envs_v2\\full_eval_v2",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "46dbe260-5b21-4854-b25e-e4378de4d83b"
+}

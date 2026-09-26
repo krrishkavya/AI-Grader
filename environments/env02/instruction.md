@@ -24,3 +24,9 @@ should only compress files ending in `.log`, leaving other files untouched.
 2. If `--ext` is provided, only compress files ending with `.<extension>` (or matching `<extension>`).
 3. If `--ext` is not provided, compress all files as before.
 4. Existing functionality and commands (such as `status` and `decompress`) must continue to work properly.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

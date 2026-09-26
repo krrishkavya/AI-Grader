@@ -20,3 +20,9 @@ When `--table <table_name>` is specified, only the schema definition and rows fo
 2. If `--table` is specified, dump only the matching table.
 3. If `--table` is omitted, dump the entire database as before.
 4. Existing functionality (such as `tables` list command) must remain intact.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

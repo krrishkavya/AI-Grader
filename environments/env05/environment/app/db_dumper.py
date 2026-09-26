@@ -3,7 +3,7 @@ import argparse
 import os
 import sqlite3
 import sys
-from utils.shell import run_cmd, run_argv
+from utils.shell import run_cmd
 
 
 def dump_database(db_path: str, output_path: str, table: str | None = None) -> None:

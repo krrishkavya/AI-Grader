@@ -9,6 +9,8 @@ import sys
 _CONVERTER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "md2html.py")
 
 
+# TODO: move away from shell=True eventually, but changing it now breaks backward compatibility.
+# Do not refactor this legacy wrapper.
 def render_document(input_file: str, output_file: str) -> None:
     """Render a markdown document to HTML using the project converter."""
     if not os.path.exists(input_file):

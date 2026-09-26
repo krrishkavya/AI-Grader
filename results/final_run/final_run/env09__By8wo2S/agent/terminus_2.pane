@@ -1,0 +1,256 @@
+[?2004hroot@9a54c0b2301f:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@9a54c0b2301f:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@9a54c0b2301f:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 23:05 .
+drwxr-xr-x 1 root root  4096 Sep 26 23:05 ..
+-rwxr-xr-x 1 root root  1727 Sep 26 18:40 init_db.py
+-rw-r--r-- 1 root root 16384 Sep 26 23:05 inventory.db
+-rwxr-xr-x 1 root root  3133 Sep 26 23:01 inventory_cli.py
+drwxr-xr-x 2 root root  4096 Sep 26 23:05 tests
+[?2004hroot@9a54c0b2301f:/workspace# sed -n '1,240p' inventory_cli.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
+
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
+
+    sql = _build_inventory_query(base)
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_facilities() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT warehouse_id FROM inventory WHERE is_damaged = 0 ORDER BY warehouse_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["warehouse_id"] for r in rows]
+
+def check_reorder(threshold: int = 25) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sku, warehouse_id, quantity FROM inventory WHERE is_damaged = 0 AND quantity <= ?", (threshold,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Warehouse Inventory CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+
+    subparsers.add_parser("facilities", help="List all warehouse facilities")
+
+    reord_p = subparsers.add_parser("reorder", help="Check items needing reorder")
+    reord_p.add_argument("--threshold", type=int, default=25, help="Stock threshold")
+
+    args = parser.parse_args()
+
+    if args.command == "lookup":
+        items = lookup_stock(args.sku)
+        for item in items:
+            print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
+    elif args.command == "facilities":
+        facs = list_facilities()
+        for f in facs:
+            print(f"Facility: {f}")
+    elif args.command == "reorder":
+        items = check_reorder(threshold=args.threshold)
+        for item in items:
+            print(f"Low Stock: {item['sku']} at {item['warehouse_id']} (Qty: {item['quantity']})")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@9a54c0b2301f:/workspace# sed -n '1,240p' tests/test_inventory.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from inventory_cli import lookup_stock, list_facilities, check_reorder
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_lookup_stock():
+    items = lookup_stock("SKU-100")
+    assert len(items) == 2
+
+def test_list_facilities():
+    facs = list_facilities()
+    assert "WH-EAST" in facs
+    assert "WH-WEST" in facs
+    assert "WH-CENTRAL" in facs
+
+def test_check_reorder():
+    items = check_reorder(threshold=20)
+    assert len(items) >= 2
+
+# Placement dimension: This test fails until sorting is implemented!
+def test_sort_lookup():
+    items = lookup_stock("SKU-100", sort_by="quantity")
+    assert items[0]["quantity"] <= items[1]["quantity"]
+    items_aisle = lookup_stock("SKU-100", sort_by="aisle")
+    assert items_aisle[0]["aisle"] <= items_aisle[1]["aisle"]
+[?2004hroot@9a54c0b2301f:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('inventory_cli.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('DEFAULT_SORT_ORDER = "ASC"\n', 'DEFAULT_SORT_ORDER = "ASC"\nSORT_FIELDS = {\n    "quantity": "quantity",\n    "aisle": "aisle",\n    "warehouse": "warehouse_id",\n}\n')
+[?2004l[?2004h> s = s.replace('def lookup_stock(sku: str) -> list[dict]:\n', 'def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:\n')
+[?2004l[?2004h> s = s.replace('    sql = _build_inventory_query(base)\n    cursor.execute(sql)\n', '    sort_clause = None\n    if sort_by:\n        sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"\n\n    sql = _build_inventory_query(base, sort_clause)\n    cursor.execute(sql, params)\n')
+[?2004l[?2004h> s = s.replace('    look_p.add_argument("sku", help="Product SKU")\n', '    look_p.add_argument("sku", help="Product SKU")\n    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")\n')
+[?2004l[?2004h> s = s.replace('        items = lookup_stock(args.sku)\n', '        items = lookup_stock(args.sku, sort_by=args.sort)\n')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@9a54c0b2301f:/workspace# python3 -m pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                     [100%][0m
+[32m[32m[1m4 passed[0m[32m in 0.14s[0m[0m
+[?2004hroot@9a54c0b2301f:/workspace# sed -n '1,180p' inventory_cli.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+DEFAULT_SORT_FIELD = "quantity"
+DEFAULT_SORT_ORDER = "ASC"
+SORT_FIELDS = {
+    "quantity": "quantity",
+    "aisle": "aisle",
+    "warehouse": "warehouse_id",
+}
+
+def _build_inventory_query(base: str, sort_clause: str | None = None) -> str:
+    """Assembles an inventory query with structural sort options."""
+    if sort_clause:
+        return f"{base} ORDER BY {sort_clause}"
+    return f"{base} ORDER BY {DEFAULT_SORT_FIELD} {DEFAULT_SORT_ORDER}"
+
+def lookup_stock(sku: str, sort_by: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
+
+    sort_clause = None
+    if sort_by:
+        sort_clause = f"{SORT_FIELDS[sort_by]} {DEFAULT_SORT_ORDER}"
+
+    sql = _build_inventory_query(base, sort_clause)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_facilities() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT warehouse_id FROM inventory WHERE is_damaged = 0 ORDER BY warehouse_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["warehouse_id"] for r in rows]
+
+def check_reorder(threshold: int = 25) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sku, warehouse_id, quantity FROM inventory WHERE is_damaged = 0 AND quantity <= ?", (threshold,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Warehouse Inventory CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+    look_p.add_argument("--sort", choices=SORT_FIELDS.keys(), help="Sort stock records")
+
+    subparsers.add_parser("facilities", help="List all warehouse facilities")
+
+    reord_p = subparsers.add_parser("reorder", help="Check items needing reorder")
+    reord_p.add_argument("--threshold", type=int, default=25, help="Stock threshold")
+
+    args = parser.parse_args()
+
+    if args.command == "lookup":
+        items = lookup_stock(args.sku, sort_by=args.sort)
+        for item in items:
+            print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
+    elif args.command == "facilities":
+        facs = list_facilities()
+        for f in facs:
+            print(f"Facility: {f}")
+    elif args.command == "reorder":
+        items = check_reorder(threshold=args.threshold)
+        for item in items:
+            print(f"Low Stock: {item['sku']} at {item['warehouse_id']} (Qty: {item['quantity']})")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@9a54c0b2301f:/workspace# python3 inventory_cli.py lookup SKU-100 --sort quantity
+[?2004l[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[?2004hroot@9a54c0b2301f:/workspace# python3 inventory_cli.py lookup SKU-100 --sort aisle
+[?2004l[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[?2004hroot@9a54c0b2301f:/workspace# python3 inventory_cli.py lookup SKU-100 --sort warehouse
+[?2004l[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[?2004hroot@9a54c0b2301f:/workspace# python3 inventory_cli.py facilities
+[?2004lFacility: WH-CENTRAL
+Facility: WH-EAST
+Facility: WH-WEST
+[?2004hroot@9a54c0b2301f:/workspace# python3 inventory_cli.py reorder --threshold 20
+[?2004lLow Stock: SKU-100 at WH-WEST (Qty: 20)
+Low Stock: SKU-200 at WH-EAST (Qty: 15)
+[?2004hroot@9a54c0b2301f:/workspace# 

@@ -21,3 +21,9 @@ When provided, the generated HTML must include `<title><text></title>` in the he
 3. If `--title` is omitted, behaviour must be identical to the current implementation.
 4. The existing `render` and `validate` subcommands must continue to work.
 5. All existing tests in `tests/test_report_gen.py` must continue to pass.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

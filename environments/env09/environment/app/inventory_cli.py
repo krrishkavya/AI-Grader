@@ -6,6 +6,8 @@ import sys
 
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
 
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
 def get_connection():
     if not os.path.exists(DB_FILE):
         raise FileNotFoundError(f"Database file not found: {DB_FILE}")
@@ -30,7 +32,7 @@ def lookup_stock(sku: str) -> list[dict]:
     params = [sku]
 
     sql = _build_inventory_query(base)
-    cursor.execute(sql, params)
+    cursor.execute(sql)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]

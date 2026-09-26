@@ -2,7 +2,7 @@
 import argparse
 import os
 import sys
-from utils.shell import run_cmd, run_argv
+from utils.shell import run_cmd
 
 def create_archive(source_dir: str, output_path: str) -> None:
     """

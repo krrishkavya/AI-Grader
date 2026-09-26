@@ -22,3 +22,9 @@ When provided, only audit records matching both the action keyword AND the speci
 3. When `--user` is omitted, events across all users matching the action should be returned.
 4. Existing subcommands (`summary` and `recent`) must remain fully functional.
 5. All existing tests in `tests/test_audit.py` must pass.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

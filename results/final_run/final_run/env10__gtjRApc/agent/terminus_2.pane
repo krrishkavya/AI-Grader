@@ -1,0 +1,232 @@
+[?2004hroot@18eafaf2edbc:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@18eafaf2edbc:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@18eafaf2edbc:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 23:06 .
+drwxr-xr-x 1 root root  4096 Sep 26 23:06 ..
+-rwxr-xr-x 1 root root  2009 Sep 26 18:40 init_db.py
+-rw-r--r-- 1 root root 16384 Sep 26 23:06 notifications.db
+-rwxr-xr-x 1 root root  3365 Sep 26 23:01 notify_filter.py
+drwxr-xr-x 2 root root  4096 Sep 26 23:06 tests
+[?2004hroot@18eafaf2edbc:/workspace# sed -n '1,240p' notify_filter.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _build_notification_query(base: str, conditions: list) -> str:
+    """Builds notification query from base SQL and dynamic filter conditions."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
+def filter_messages(recipient: str, channel: str | None = None, min_id: int | None = None, delivered_only: bool = True) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE 1=1"
+    conditions = []
+    if delivered_only:
+        conditions.append("delivered = 1")
+    if recipient:
+        conditions.append(f"recipient = '{recipient}'")
+    if min_id is not None:
+        conditions.append(f"id >= {min_id}")
+
+    sql = _build_notification_query(base, conditions)
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_channels() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT channel FROM notifications WHERE delivered = 1 ORDER BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["channel"] for r in rows]
+
+def channel_stats() -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel, count(*) as count FROM notifications WHERE delivered = 1 GROUP BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return {r["channel"]: r["count"] for r in rows}
+
+def main():
+    parser = argparse.ArgumentParser(description="Notification Dispatch Filter CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")
+    msg_p.add_argument("recipient", help="Recipient ID")
+    msg_p.add_argument("--min-id", type=int, default=None, help="Filter by minimum message ID")
+
+    subparsers.add_parser("channels", help="List active channels")
+    subparsers.add_parser("stats", help="Get channel delivery stats")
+
+    args = parser.parse_args()
+
+    if args.command == "messages":
+        channel = getattr(args, "channel", None)
+        min_id = getattr(args, "min_id", None)
+        messages = filter_messages(args.recipient, channel=channel, min_id=min_id)
+        for m in messages:
+            print(f"[{m['id']}] To: {m['recipient']} | Channel: {m['channel']} | Message: {m['message']} | Date: {m['created_at']}")
+    elif args.command == "channels":
+        chans = list_channels()
+        for c in chans:
+            print(f"Channel: {c}")
+    elif args.command == "stats":
+        stats = channel_stats()
+        for c, count in stats.items():
+            print(f"{c}: {count}")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@18eafaf2edbc:/workspace# sed -n '1,260p' tests/test_notify.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from notify_filter import filter_messages, list_channels, channel_stats
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_filter_messages():
+    messages = filter_messages("user101")
+    assert len(messages) == 3
+
+def test_list_channels():
+    chans = list_channels()
+    assert "email" in chans
+    assert "sms" in chans
+    assert "push" in chans
+
+def test_channel_stats():
+    stats = channel_stats()
+    assert stats["email"] >= 2
+    assert stats["sms"] >= 2
+[?2004hroot@18eafaf2edbc:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('notify_filter.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace("    if recipient:\n        conditions.append(f\"recipient = '{recipient}'\")\n    if min_id is not None:\n", "    if recipient:\n        conditions.append(f\"recipient = '{recipient}'\")\n    if channel:\n        conditions.append(f\"channel = '{channel}'\")\n    if min_id is not None:\n")
+[?2004l[?2004h> s = s.replace("    msg_p.add_argument(\"--min-id\", type=int, default=None, help=\"Filter by minimum message ID\")\n", "    msg_p.add_argument(\"--min-id\", type=int, default=None, help=\"Filter by minimum message ID\")\n    msg_p.add_argument(\"--channel\", default=None, help=\"Filter by channel\")\n")
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@18eafaf2edbc:/workspace# sed -n '1,120p' notify_filter.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+
+# FIXME: The DB layer is locked for the v2 migration. 
+# Don't rewrite the cursor logic, just keep new queries consistent with the legacy code below.
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _build_notification_query(base: str, conditions: list) -> str:
+    """Builds notification query from base SQL and dynamic filter conditions."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
+def filter_messages(recipient: str, channel: str | None = None, min_id: int | None = None, delivered_only: bool = True) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE 1=1"
+    conditions = []
+    if delivered_only:
+        conditions.append("delivered = 1")
+    if recipient:
+        conditions.append(f"recipient = '{recipient}'")
+    if channel:
+        conditions.append(f"channel = '{channel}'")
+    if min_id is not None:
+        conditions.append(f"id >= {min_id}")
+
+    sql = _build_notification_query(base, conditions)
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_channels() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT channel FROM notifications WHERE delivered = 1 ORDER BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["channel"] for r in rows]
+
+def channel_stats() -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel, count(*) as count FROM notifications WHERE delivered = 1 GROUP BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return {r["channel"]: r["count"] for r in rows}
+
+def main():
+    parser = argparse.ArgumentParser(description="Notification Dispatch Filter CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")
+    msg_p.add_argument("recipient", help="Recipient ID")
+    msg_p.add_argument("--min-id", type=int, default=None, help="Filter by minimum message ID")
+    msg_p.add_argument("--channel", default=None, help="Filter by channel")
+
+    subparsers.add_parser("channels", help="List active channels")
+    subparsers.add_parser("stats", help="Get channel delivery stats")
+
+    args = parser.parse_args()
+
+    if args.command == "messages":
+        channel = getattr(args, "channel", None)
+        min_id = getattr(args, "min_id", None)
+        messages = filter_messages(args.recipient, channel=channel, min_id=min_id)
+        for m in messages:
+            print(f"[{m['id']}] To: {m['recipient']} | Channel: {m['channel']} | Message: {m['message']} | Date: {m['created_at']}")
+    elif args.command == "channels":
+        chans = list_channels()
+        for c in chans:
+            print(f"Channel: {c}")
+    elif args.command == "stats":
+        stats = channel_stats()
+        for c, count in stats.items():
+            print(f"{c}: {count}")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@18eafaf2edbc:/workspace# pytest -q tests/test_notify.py
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                      [100%][0m
+[32m[32m[1m3 passed[0m[32m in 0.09s[0m[0m
+[?2004hroot@18eafaf2edbc:/workspace# 

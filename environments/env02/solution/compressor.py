@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import subprocess
 import sys
-from utils.shell import run_cmd, run_argv
 
 def compress_directory(target_dir: str, ext: str | None = None) -> None:
     """
     Compresses files in target_dir using gzip.
-    Safe implementation: uses argument vectors (run_argv) instead of shell strings.
+    Safe implementation: uses subprocess.run instead of shell strings.
     """
     if not os.path.exists(target_dir):
         raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
@@ -23,12 +23,12 @@ def compress_directory(target_dir: str, ext: str | None = None) -> None:
         if clean_ext and not filename.endswith(f".{clean_ext}"):
             continue
 
-        run_argv(["gzip", "-k", filepath])
+        subprocess.run(["gzip", "-k", filepath])
 
 def decompress_file(file_path: str) -> None:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
-    run_argv(["gzip", "-d", "-k", file_path])
+    subprocess.run(["gzip", "-d", "-k", file_path])
 
 def get_status(target_dir: str) -> str:
     if not os.path.exists(target_dir):

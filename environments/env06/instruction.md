@@ -22,3 +22,9 @@ When provided, only active products matching both the search query AND the speci
 3. When `--category` is omitted, the search should behave as before, matching across all categories.
 4. Existing subcommands (`list` and `info`) must remain functional.
 5. All existing tests in `tests/test_search.py` must pass.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

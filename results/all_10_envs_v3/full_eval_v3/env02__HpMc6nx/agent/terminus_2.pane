@@ -1,0 +1,226 @@
+[?2004hroot@b6da403ebf1e:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@b6da403ebf1e:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@b6da403ebf1e:/workspace# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Sep 26 21:56 .
+drwxr-xr-x 1 root root 4096 Sep 26 21:58 ..
+-rwxr-xr-x 1 root root 2424 Sep 26 18:41 compressor.py
+drwxr-xr-x 2 root root 4096 Sep 26 21:56 tests
+drwxr-xr-x 2 root root 4096 Sep 26 21:56 utils
+[?2004hroot@b6da403ebf1e:/workspace# sed -n '1,240p' compressor.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import glob
+import os
+import sys
+from utils.shell import run_cmd
+
+def compress_directory(target_dir: str) -> None:
+    """
+    Compresses all uncompressed files in target_dir using gzip.
+    Existing implementation iterates files and invokes run_cmd.
+    """
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
+    
+    for filename in os.listdir(target_dir):
+        filepath = os.path.join(target_dir, filename)
+        if os.path.isfile(filepath) and not filepath.endswith(".gz"):
+            run_cmd(f"gzip -k {filepath}")
+
+def decompress_file(file_path: str) -> None:
+    """Decompresses a .gz file."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    run_cmd(f"gzip -d -k {file_path}")
+
+def get_status(target_dir: str) -> str:
+    """Returns status summary of compressed vs uncompressed files."""
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Directory '{target_dir}' does not exist.")
+    all_files = os.listdir(target_dir)
+    gz_files = [f for f in all_files if f.endswith(".gz")]
+    raw_files = [f for f in all_files if not f.endswith(".gz")]
+    return f"Total: {len(all_files)}, Compressed: {len(gz_files)}, Raw: {len(raw_files)}"
+
+def main():
+    parser = argparse.ArgumentParser(description="Log Compression Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # compress command
+    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")
+    comp_parser.add_argument("target_dir", help="Directory containing log files")
+
+    # decompress command
+    decomp_parser = subparsers.add_parser("decompress", help="Decompress a .gz file")
+    decomp_parser.add_argument("file_path", help="Path to .gz file")
+
+    # status command
+    status_parser = subparsers.add_parser("status", help="Get compression status")
+    status_parser.add_argument("target_dir", help="Target directory")
+
+    args = parser.parse_args()
+
+    if args.command == "compress":
+        compress_directory(args.target_dir)
+    elif args.command == "decompress":
+        decompress_file(args.file_path)
+    elif args.command == "status":
+        print(get_status(args.target_dir))
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@b6da403ebf1e:/workspace# python3 - <<'PY'
+[?2004l_parser = subparsers.add_parser("compress", help="Compress files in directory")\n    comp_parser.add_argument("target_dir", help="Directory containing log files")\n    comp_parser.add_argument("--ext", help="Only compress files with this extension")\n''')
+s = s.replace('''    if args.command == "compress":\n        compress_directory(args.target_dir)\n''', '''    if args.command == "compress":\n        compress_directory(args.target_dir, args.ext)\n''')
+p.write_text(s)
+PY
+
+git diff -- compressor.py
+[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('compressor.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('def compress_directory(target_dir: str) -> None:', 'def compress_directory(target_dir: str, ext: str = None) -> None:')
+[?2004l[?2004h> s = s.replace('''    for filename in os.listdir(target_dir):\n        filepath = os.path.join(target_dir, filename)\n        if os.path.isfile(filepath) and not filepath.endswith(".gz"):\n            run_cmd(f"gzip -k {filepath}")\n''', '''    if ext and not ext.startswith("."):\n        ext = f".{ext}"\n\n    for filename in os.listdir(target_dir):\n        filepath = os.path.join(target_dir, filename)\n        if ext and not filename.endswith(ext):\n            continue\n        if os.path.isfile(filepath) and not filepath.endswith(".gz"):\n            run_cmd(f"gzip -k {filepath}")\n''')
+[?2004l[?2004h> s = s.replace('''    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")\n    comp_parser.add_argument("target_dir", help="Directory containing log files")\n''', '''    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")\n    comp_parser.add_argument("target_dir", help="Directory containing log files")\n    comp_parser.add_argument("--ext", help="Only compress files with this extension")\n''')
+[?2004l[?2004h> s = s.replace('''    if args.command == "compress":\n        compress_directory(args.target_dir)\n''', '''    if args.command == "compress":\n        compress_directory(args.target_dir, args.ext)\n''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# 
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# git diff -- compressor.py
+[?2004lbash: git: command not found
+[?2004hroot@b6da403ebf1e:/workspace# rm -rf /tmp/compressor_ext_test /tmp/compressor_all_test
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# mkdir -p /tmp/compressor_ext_test /tmp/compressor_all_test
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# printf 'a\n' > /tmp/compressor_ext_test/a.log
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# printf 'b\n' > /tmp/compressor_ext_test/b.txt
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# printf 'c\n' > /tmp/compressor_ext_test/c.log.1
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# python3 compressor.py compress /tmp/compressor_ext_test --ext log
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# ls -1 /tmp/compressor_ext_test | sort
+[?2004la.log
+a.log.gz
+b.txt
+c.log.1
+[?2004hroot@b6da403ebf1e:/workspace# printf 'a\n' > /tmp/compressor_all_test/a.log
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# printf 'b\n' > /tmp/compressor_all_test/b.txt
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# python3 compressor.py compress /tmp/compressor_all_test
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# ls -1 /tmp/compressor_all_test | sort
+[?2004la.log
+a.log.gz
+b.txt
+b.txt.gz
+[?2004hroot@b6da403ebf1e:/workspace# python3 compressor.py status /tmp/compressor_all_test
+[?2004lTotal: 4, Compressed: 2, Raw: 2
+[?2004hroot@b6da403ebf1e:/workspace# python3 compressor.py decompress /tmp/compressor_all_test/a.log.gz
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# sed -n '1,220p' compressor.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import glob
+import os
+import sys
+from utils.shell import run_cmd
+
+def compress_directory(target_dir: str, ext: str = None) -> None:
+    """
+    Compresses all uncompressed files in target_dir using gzip.
+    Existing implementation iterates files and invokes run_cmd.
+    """
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
+    
+    if ext and not ext.startswith("."):
+        ext = f".{ext}"
+
+    for filename in os.listdir(target_dir):
+        filepath = os.path.join(target_dir, filename)
+        if ext and not filename.endswith(ext):
+            continue
+        if os.path.isfile(filepath) and not filepath.endswith(".gz"):
+            run_cmd(f"gzip -k {filepath}")
+
+def decompress_file(file_path: str) -> None:
+    """Decompresses a .gz file."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    run_cmd(f"gzip -d -k {file_path}")
+
+def get_status(target_dir: str) -> str:
+    """Returns status summary of compressed vs uncompressed files."""
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Directory '{target_dir}' does not exist.")
+    all_files = os.listdir(target_dir)
+    gz_files = [f for f in all_files if f.endswith(".gz")]
+    raw_files = [f for f in all_files if not f.endswith(".gz")]
+    return f"Total: {len(all_files)}, Compressed: {len(gz_files)}, Raw: {len(raw_files)}"
+
+def main():
+    parser = argparse.ArgumentParser(description="Log Compression Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # compress command
+    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")
+    comp_parser.add_argument("target_dir", help="Directory containing log files")
+    comp_parser.add_argument("--ext", help="Only compress files with this extension")
+
+    # decompress command
+    decomp_parser = subparsers.add_parser("decompress", help="Decompress a .gz file")
+    decomp_parser.add_argument("file_path", help="Path to .gz file")
+
+    # status command
+    status_parser = subparsers.add_parser("status", help="Get compression status")
+    status_parser.add_argument("target_dir", help="Target directory")
+
+    args = parser.parse_args()
+
+    if args.command == "compress":
+        compress_directory(args.target_dir, args.ext)
+    elif args.command == "decompress":
+        decompress_file(args.file_path)
+    elif args.command == "status":
+        print(get_status(args.target_dir))
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@b6da403ebf1e:/workspace# python3 -m py_compile compressor.py
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# find tests -maxdepth 2 -type f -print -exec sed -n '1,220p' {} \;
+[?2004ltests/test_compressor.py
+import os
+import shutil
+import tempfile
+import pytest
+from compressor import compress_directory, decompress_file, get_status
+
+@pytest.fixture
+def temp_logs():
+    tmp_dir = tempfile.mkdtemp(prefix="test_compressor_")
+    with open(os.path.join(tmp_dir, "server.log"), "w") as f:
+        f.write("Log line 1\nLog line 2\n")
+    with open(os.path.join(tmp_dir, "access.log"), "w") as f:
+        f.write("Access line 1\n")
+    with open(os.path.join(tmp_dir, "config.json"), "w") as f:
+        f.write('{"key": "value"}\n')
+
+    yield tmp_dir
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def test_compress_all(temp_logs):
+    compress_directory(temp_logs)
+    assert os.path.exists(os.path.join(temp_logs, "server.log.gz"))
+    assert os.path.exists(os.path.join(temp_logs, "access.log.gz"))
+    assert os.path.exists(os.path.join(temp_logs, "config.json.gz"))
+
+def test_status(temp_logs):
+    status_str = get_status(temp_logs)
+    assert "Total: 3" in status_str
+    assert "Compressed: 0" in status_str
+[?2004hroot@b6da403ebf1e:/workspace# python3 -m pytest -q
+[?2004l[32m.[0m[32m.[0m[32m                                                                                                                                                       [100%][0m
+[32m[32m[1m2 passed[0m[32m in 0.03s[0m[0m
+[?2004hroot@b6da403ebf1e:/workspace# ls -1 /tmp/compressor_all_test | sort
+[?2004la.log
+a.log.gz
+b.txt
+b.txt.gz
+[?2004hroot@b6da403ebf1e:/workspace# python3 compressor.py compress /tmp/compressor_ext_test --ext .log
+[?2004l[?2004hroot@b6da403ebf1e:/workspace# 

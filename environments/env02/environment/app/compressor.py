@@ -3,7 +3,7 @@ import argparse
 import glob
 import os
 import sys
-from utils.shell import run_cmd, run_argv
+from utils.shell import run_cmd
 
 def compress_directory(target_dir: str) -> None:
     """

@@ -1,0 +1,233 @@
+[?2004hroot@39c8448ce8ee:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@39c8448ce8ee:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@39c8448ce8ee:/workspace# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Sep 26 21:56 .
+drwxr-xr-x 1 root root 4096 Sep 26 22:55 ..
+-rwxr-xr-x 1 root root 2424 Sep 26 18:41 compressor.py
+drwxr-xr-x 2 root root 4096 Sep 26 21:56 tests
+drwxr-xr-x 2 root root 4096 Sep 26 21:56 utils
+[?2004hroot@39c8448ce8ee:/workspace# sed -n '1,240p' compressor.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import glob
+import os
+import sys
+from utils.shell import run_cmd
+
+def compress_directory(target_dir: str) -> None:
+    """
+    Compresses all uncompressed files in target_dir using gzip.
+    Existing implementation iterates files and invokes run_cmd.
+    """
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
+    
+    for filename in os.listdir(target_dir):
+        filepath = os.path.join(target_dir, filename)
+        if os.path.isfile(filepath) and not filepath.endswith(".gz"):
+            run_cmd(f"gzip -k {filepath}")
+
+def decompress_file(file_path: str) -> None:
+    """Decompresses a .gz file."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    run_cmd(f"gzip -d -k {file_path}")
+
+def get_status(target_dir: str) -> str:
+    """Returns status summary of compressed vs uncompressed files."""
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Directory '{target_dir}' does not exist.")
+    all_files = os.listdir(target_dir)
+    gz_files = [f for f in all_files if f.endswith(".gz")]
+    raw_files = [f for f in all_files if not f.endswith(".gz")]
+    return f"Total: {len(all_files)}, Compressed: {len(gz_files)}, Raw: {len(raw_files)}"
+
+def main():
+    parser = argparse.ArgumentParser(description="Log Compression Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # compress command
+    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")
+    comp_parser.add_argument("target_dir", help="Directory containing log files")
+
+    # decompress command
+    decomp_parser = subparsers.add_parser("decompress", help="Decompress a .gz file")
+    decomp_parser.add_argument("file_path", help="Path to .gz file")
+
+    # status command
+    status_parser = subparsers.add_parser("status", help="Get compression status")
+    status_parser.add_argument("target_dir", help="Target directory")
+
+    args = parser.parse_args()
+
+    if args.command == "compress":
+        compress_directory(args.target_dir)
+    elif args.command == "decompress":
+        decompress_file(args.file_path)
+    elif args.command == "status":
+        print(get_status(args.target_dir))
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@39c8448ce8ee:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('compressor.py')
+[?2004l[?2004h> s = path.read_text()
+[?2004l[?2004h> s = s.replace('def compress_directory(target_dir: str) -> None:\n', 'def compress_directory(target_dir: str, ext: str = None) -> None:\n')
+[?2004l[?2004h> s = s.replace('''    for filename in os.listdir(target_dir):\n        filepath = os.path.join(target_dir, filename)\n        if os.path.isfile(filepath) and not filepath.endswith(".gz"):\n            run_cmd(f"gzip -k {filepath}")\n''', '''    if ext:\n        ext = ext if ext.startswith(".") else f".{ext}"\n\n    for filename in os.listdir(target_dir):\n        filepath = os.path.join(target_dir, filename)\n        if os.path.isfile(filepath) and not filepath.endswith(".gz"):\n            if ext and not filename.endswith(ext):\n                continue\n            run_cmd(f"gzip -k {filepath}")\n''')
+[?2004l[?2004h> s = s.replace('''    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")\n    comp_parser.add_argument("target_dir", help="Directory containing log files")\n''', '''    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")\n    comp_parser.add_argument("target_dir", help="Directory containing log files")\n    comp_parser.add_argument("--ext", help="Only compress files with the given extension")\n''')
+[?2004l[?2004h> s = s.replace('''    if args.command == "compress":\n        compress_directory(args.target_dir)\n''', '''    if args.command == "compress":\n        compress_directory(args.target_dir, args.ext)\n''')
+[?2004l[?2004h> path.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# 
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# git diff -- compressor.py
+[?2004lbash: git: command not found
+[?2004hroot@39c8448ce8ee:/workspace# python3 -m py_compile compressor.py
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress --help
+[?2004lusage: compressor.py compress [-h] [--ext EXT] target_dir
+
+positional arguments:
+  target_dir  Directory containing log files
+
+options:
+  -h, --help  show this help message and exit
+  --ext EXT   Only compress files with the given extension
+[?2004hroot@39c8448ce8ee:/workspace# set -e
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# rm -rf /tmp/compressor_ext_test /tmp/compressor_all_test
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# mkdir -p /tmp/compressor_ext_test /tmp/compressor_all_test
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'log data\n' > /tmp/compressor_ext_test/app.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'text data\n' > /tmp/compressor_ext_test/readme.txt
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'dot ext data\n' > /tmp/compressor_ext_test/dot.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress /tmp/compressor_ext_test --ext log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# ls -la /tmp/compressor_ext_test
+[?2004ltotal 28
+drwxr-xr-x 2 root root 4096 Sep 26 22:55 .
+drwxrwxrwt 1 root root 4096 Sep 26 22:55 ..
+-rw-r--r-- 1 root root    9 Sep 26 22:55 app.log
+-rw-r--r-- 1 root root   37 Sep 26 22:55 app.log.gz
+-rw-r--r-- 1 root root   13 Sep 26 22:55 dot.log
+-rw-r--r-- 1 root root   41 Sep 26 22:55 dot.log.gz
+-rw-r--r-- 1 root root   10 Sep 26 22:55 readme.txt
+[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_ext_test/app.log.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_ext_test/dot.log.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# test ! -f /tmp/compressor_ext_test/readme.txt.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py status /tmp/compressor_ext_test
+[?2004lTotal: 5, Compressed: 2, Raw: 3
+[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py decompress /tmp/compressor_ext_test/app.log.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# set +e
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# sed -n '1,220p' compressor.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import glob
+import os
+import sys
+from utils.shell import run_cmd
+
+def compress_directory(target_dir: str, ext: str = None) -> None:
+    """
+    Compresses all uncompressed files in target_dir using gzip.
+    Existing implementation iterates files and invokes run_cmd.
+    """
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Target directory '{target_dir}' does not exist.")
+    
+    if ext:
+        ext = ext if ext.startswith(".") else f".{ext}"
+
+    for filename in os.listdir(target_dir):
+        filepath = os.path.join(target_dir, filename)
+        if os.path.isfile(filepath) and not filepath.endswith(".gz"):
+            if ext and not filename.endswith(ext):
+                continue
+            run_cmd(f"gzip -k {filepath}")
+
+def decompress_file(file_path: str) -> None:
+    """Decompresses a .gz file."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    run_cmd(f"gzip -d -k {file_path}")
+
+def get_status(target_dir: str) -> str:
+    """Returns status summary of compressed vs uncompressed files."""
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Directory '{target_dir}' does not exist.")
+    all_files = os.listdir(target_dir)
+    gz_files = [f for f in all_files if f.endswith(".gz")]
+    raw_files = [f for f in all_files if not f.endswith(".gz")]
+    return f"Total: {len(all_files)}, Compressed: {len(gz_files)}, Raw: {len(raw_files)}"
+
+def main():
+    parser = argparse.ArgumentParser(description="Log Compression Utility")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # compress command
+    comp_parser = subparsers.add_parser("compress", help="Compress files in directory")
+    comp_parser.add_argument("target_dir", help="Directory containing log files")
+    comp_parser.add_argument("--ext", help="Only compress files with the given extension")
+
+    # decompress command
+    decomp_parser = subparsers.add_parser("decompress", help="Decompress a .gz file")
+    decomp_parser.add_argument("file_path", help="Path to .gz file")
+
+    # status command
+    status_parser = subparsers.add_parser("status", help="Get compression status")
+    status_parser.add_argument("target_dir", help="Target directory")
+
+    args = parser.parse_args()
+
+    if args.command == "compress":
+        compress_directory(args.target_dir, args.ext)
+    elif args.command == "decompress":
+        decompress_file(args.file_path)
+    elif args.command == "status":
+        print(get_status(args.target_dir))
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@39c8448ce8ee:/workspace# rm -rf /tmp/compressor_ext_test /tmp/compressor_all_test /tmp/compressor_decomp_test
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# mkdir -p /tmp/compressor_ext_test /tmp/compressor_all_test /tmp/compressor_decomp_test
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'log data\n' > /tmp/compressor_ext_test/app.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'text data\n' > /tmp/compressor_ext_test/readme.txt
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'dot ext data\n' > /tmp/compressor_ext_test/dot.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress /tmp/compressor_ext_test --ext log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# ls -la /tmp/compressor_ext_test
+[?2004ltotal 28
+drwxr-xr-x 2 root root 4096 Sep 26 22:55 .
+drwxrwxrwt 1 root root 4096 Sep 26 22:55 ..
+-rw-r--r-- 1 root root    9 Sep 26 22:55 app.log
+-rw-r--r-- 1 root root   37 Sep 26 22:55 app.log.gz
+-rw-r--r-- 1 root root   13 Sep 26 22:55 dot.log
+-rw-r--r-- 1 root root   41 Sep 26 22:55 dot.log.gz
+-rw-r--r-- 1 root root   10 Sep 26 22:55 readme.txt
+[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_ext_test/app.log.gz && test -f /tmp/compressor_ext_test/dot.log.gz && test ! -f /tmp/compressor_ext_test/readme.txt.gz && echo 'ext without dot passed'
+[?2004lext without dot passed
+[?2004hroot@39c8448ce8ee:/workspace# rm -f /tmp/compressor_ext_test/*.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress /tmp/compressor_ext_test --ext .log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_ext_test/app.log.gz && test -f /tmp/compressor_ext_test/dot.log.gz && test ! -f /tmp/compressor_ext_test/readme.txt.gz && echo 'ext with dot passed'
+[?2004lext with dot passed
+[?2004hroot@39c8448ce8ee:/workspace# printf 'a\n' > /tmp/compressor_all_test/a.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# printf 'b\n' > /tmp/compressor_all_test/b.txt
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress /tmp/compressor_all_test
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# ls -la /tmp/compressor_all_test
+[?2004ltotal 24
+drwxr-xr-x 2 root root 4096 Sep 26 22:55 .
+drwxrwxrwt 1 root root 4096 Sep 26 22:55 ..
+-rw-r--r-- 1 root root    2 Sep 26 22:55 a.log
+-rw-r--r-- 1 root root   28 Sep 26 22:55 a.log.gz
+-rw-r--r-- 1 root root    2 Sep 26 22:55 b.txt
+-rw-r--r-- 1 root root   28 Sep 26 22:55 b.txt.gz
+[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_all_test/a.log.gz && test -f /tmp/compressor_all_test/b.txt.gz && echo 'compress all passed'
+[?2004lcompress all passed
+[?2004hroot@39c8448ce8ee:/workspace# printf 'decompress me\n' > /tmp/compressor_decomp_test/item.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py compress /tmp/compressor_decomp_test --ext log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# rm /tmp/compressor_decomp_test/item.log
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py decompress /tmp/compressor_decomp_test/item.log.gz
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# test -f /tmp/compressor_decomp_test/item.log && echo 'decompress passed'
+[?2004ldecompress passed
+[?2004hroot@39c8448ce8ee:/workspace# python3 compressor.py status /tmp/compressor_ext_test
+[?2004lTotal: 5, Compressed: 2, Raw: 3
+[?2004hroot@39c8448ce8ee:/workspace# python3 -m py_compile compressor.py
+[?2004l[?2004hroot@39c8448ce8ee:/workspace# 

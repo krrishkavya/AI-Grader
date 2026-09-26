@@ -22,3 +22,9 @@ When provided, only notifications matching both the recipient AND the exact chan
 3. When `--channel` is omitted, all messages for that recipient across channels must be returned as before.
 4. Existing subcommands (`channels` and `stats`) must remain functional.
 5. All existing tests in `tests/test_notify.py` must pass.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.

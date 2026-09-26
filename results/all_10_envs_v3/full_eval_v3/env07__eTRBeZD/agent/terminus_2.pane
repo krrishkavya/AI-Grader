@@ -1,0 +1,204 @@
+[?2004hroot@7b22a7cb695b:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@7b22a7cb695b:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@7b22a7cb695b:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 22:08 .
+drwxr-xr-x 1 root root  4096 Sep 26 22:08 ..
+-rw-r--r-- 1 root root 16384 Sep 26 22:08 audit.db
+-rwxr-xr-x 1 root root  3521 Sep 26 18:40 audit_viewer.py
+-rwxr-xr-x 1 root root  1937 Sep 26 18:40 init_db.py
+drwxr-xr-x 2 root root  4096 Sep 26 22:08 tests
+[?2004hroot@7b22a7cb695b:/workspace# sed -n '1,240p' audit_viewer.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit.db")
+
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _build_event_query(base: str, conditions: list) -> str:
+    """Builds an audit query by joining conditions onto the base clause."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
+def query_events(action_kw: str, severity: str | None = None, min_id: int | None = None, user: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    base = "SELECT id, user, action, ip_address, severity, timestamp FROM audit_logs WHERE 1=1"
+    conditions = []
+    if action_kw:
+        conditions.append(f"action LIKE '%{action_kw}%'")
+    if severity:
+        conditions.append(f"severity = '{severity}'")
+    if min_id is not None:
+        conditions.append(f"id >= {min_id}")
+
+    sql = _build_event_query(base, conditions)
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def query_summary() -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT severity, count(*) as count FROM audit_logs GROUP BY severity")
+    rows = cursor.fetchall()
+    conn.close()
+    return {r["severity"]: r["count"] for r in rows}
+
+def query_recent(limit: int = 5) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, user, action, severity, timestamp FROM audit_logs ORDER BY id DESC LIMIT ?", (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Security Audit Log CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    event_p = subparsers.add_parser("events", help="Query audit events by action")
+    event_p.add_argument("action", help="Action keyword to search")
+    event_p.add_argument("--severity", default=None, help="Filter by severity level")
+    event_p.add_argument("--min-id", type=int, default=None, help="Minimum event ID")
+
+    subparsers.add_parser("summary", help="Show audit severity summary")
+
+    recent_p = subparsers.add_parser("recent", help="Show most recent events")
+    recent_p.add_argument("--limit", type=int, default=5, help="Number of events")
+
+    args = parser.parse_args()
+
+    if args.command == "events":
+        user = getattr(args, "user", None)
+        severity = getattr(args, "severity", None)
+        min_id = getattr(args, "min_id", None)
+        events = query_events(args.action, severity=severity, min_id=min_id, user=user)
+        for e in events:
+            print(f"[{e['id']}] {e['timestamp']} | User: {e['user']} | Action: {e['action']} | IP: {e['ip_address']} | Severity: {e['severity']}")
+    elif args.command == "summary":
+        summary = query_summary()
+        for sev, count in summary.items():
+            print(f"{sev}: {count}")
+    elif args.command == "recent":
+        events = query_recent(limit=args.limit)
+        for e in events:
+            print(f"[{e['id']}] {e['timestamp']} | User: {e['user']} | Action: {e['action']}")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@7b22a7cb695b:/workspace# sed -n '1,260p' tests/test_audit.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from audit_viewer import query_events, query_summary, query_recent
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_query_events():
+    events = query_events("LOGIN")
+    assert len(events) == 2
+    users = [e["user"] for e in events]
+    assert "alice" in users
+    assert "bob" in users
+
+def test_query_summary():
+    summary = query_summary()
+    assert "INFO" in summary
+    assert "WARN" in summary
+    assert "HIGH" in summary
+
+def test_query_recent():
+    recent = query_recent(limit=3)
+    assert len(recent) == 3
+[?2004hroot@7b22a7cb695b:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('audit_viewer.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace("""    if min_id is not None:\n        conditions.append(f\"id >= {min_id}\")\n\n    sql = _build_event_query(base, conditions)\n""", """    if min_id is not None:\n        conditions.append(f\"id >= {min_id}\")\n    if user:\n        conditions.append(f\"user = '{user}'\")\n\n    sql = _build_event_query(base, conditions)\n""")
+[?2004l[?2004h> s = s.replace("""    event_p.add_argument(\"--min-id\", type=int, default=None, help=\"Minimum event ID\")\n\n    subparsers.add_parser(\"summary\", help=\"Show audit severity summary\")\n""", """    event_p.add_argument(\"--min-id\", type=int, default=None, help=\"Minimum event ID\")\n    event_p.add_argument(\"--user\", default=None, help=\"Filter by username\")\n\n    subparsers.add_parser(\"summary\", help=\"Show audit severity summary\")\n""")
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@7b22a7cb695b:/workspace# grep -n "user" -C 3 audit_viewer.py
+[?2004l19-        return base + " AND " + " AND ".join(conditions)
+20-    return base
+21-
+22:def query_events(action_kw: str, severity: str | None = None, min_id: int | None = None, user: str | None = None) -> list[dict]:
+23-    conn = get_connection()
+24-    cursor = conn.cursor()
+25-
+26:    base = "SELECT id, user, action, ip_address, severity, timestamp FROM audit_logs WHERE 1=1"
+27-    conditions = []
+28-    if action_kw:
+29-        conditions.append(f"action LIKE '%{action_kw}%'")
+--
+31-        conditions.append(f"severity = '{severity}'")
+32-    if min_id is not None:
+33-        conditions.append(f"id >= {min_id}")
+34:    if user:
+35:        conditions.append(f"user = '{user}'")
+36-
+37-    sql = _build_event_query(base, conditions)
+38-    cursor.execute(sql)
+--
+51-def query_recent(limit: int = 5) -> list[dict]:
+52-    conn = get_connection()
+53-    cursor = conn.cursor()
+54:    cursor.execute("SELECT id, user, action, severity, timestamp FROM audit_logs ORDER BY id DESC LIMIT ?", (limit,))
+55-    rows = cursor.fetchall()
+56-    conn.close()
+57-    return [dict(r) for r in rows]
+--
+64-    event_p.add_argument("action", help="Action keyword to search")
+65-    event_p.add_argument("--severity", default=None, help="Filter by severity level")
+66-    event_p.add_argument("--min-id", type=int, default=None, help="Minimum event ID")
+67:    event_p.add_argument("--user", default=None, help="Filter by username")
+68-
+69-    subparsers.add_parser("summary", help="Show audit severity summary")
+70-
+--
+74-    args = parser.parse_args()
+75-
+76-    if args.command == "events":
+77:        user = getattr(args, "user", None)
+78-        severity = getattr(args, "severity", None)
+79-        min_id = getattr(args, "min_id", None)
+80:        events = query_events(args.action, severity=severity, min_id=min_id, user=user)
+81-        for e in events:
+82:            print(f"[{e['id']}] {e['timestamp']} | User: {e['user']} | Action: {e['action']} | IP: {e['ip_address']} | Severity: {e['severity']}")
+83-    elif args.command == "summary":
+84-        summary = query_summary()
+85-        for sev, count in summary.items():
+--
+87-    elif args.command == "recent":
+88-        events = query_recent(limit=args.limit)
+89-        for e in events:
+90:            print(f"[{e['id']}] {e['timestamp']} | User: {e['user']} | Action: {e['action']}")
+91-
+92-if __name__ == "__main__":
+93-    main()
+[?2004hroot@7b22a7cb695b:/workspace# pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                      [100%][0m
+[32m[32m[1m3 passed[0m[32m in 0.13s[0m[0m
+[?2004hroot@7b22a7cb695b:/workspace# python3 audit_viewer.py events LOGIN --user alice
+[?2004l[1] 2026-09-26 10:00:00 | User: alice | Action: LOGIN_SUCCESS | IP: 192.168.1.10 | Severity: INFO
+[?2004hroot@7b22a7cb695b:/workspace# 

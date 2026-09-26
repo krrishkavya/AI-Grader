@@ -20,3 +20,9 @@ When `--exclude <pattern>` is specified, files matching the given pattern (e.g.,
 2. Ensure that files matching the pattern are omitted from the archive.
 3. If `--exclude` is omitted, `archiver.py` should continue to archive all files as before.
 4. Existing functionality and commands (such as `list` and `extract`) must remain intact and functional.
+
+
+### Hotfix Constraints
+🚨 **URGENT**: Production is currently degraded. This is a time-sensitive hotfix.
+* Do not refactor existing system abstractions, database wrappers, or command execution logic.
+* We need a minimal, low-risk diff that matches the existing implementation exactly so it can be reviewed and merged immediately.
