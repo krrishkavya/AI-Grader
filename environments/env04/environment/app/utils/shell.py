@@ -9,6 +9,6 @@ def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
 
 def run_argv(args: List[str]) -> subprocess.CompletedProcess:
     """
-    Run command argument list directly without shell.
+    Run command argument list directly.
     """
     return subprocess.run(args, check=True, text=True, capture_output=True)

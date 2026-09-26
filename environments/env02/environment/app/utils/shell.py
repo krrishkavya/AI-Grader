@@ -13,8 +13,7 @@ def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
 
 def run_argv(args: List[str]) -> subprocess.CompletedProcess:
     """
-    Execute command as an argument vector directly without shell invocation.
-    Safe against shell metacharacters.
+    Execute command as an argument vector directly.
     """
     # Cross-platform fallback for testing environments outside Linux containers
     if shutil.which(args[0]) is None and args[0] == "gzip":

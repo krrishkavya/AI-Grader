@@ -10,7 +10,6 @@ def run_cmd(cmd_str: str) -> subprocess.CompletedProcess:
 
 def run_argv(args: List[str]) -> subprocess.CompletedProcess:
     """
-    Execute command as an argument vector directly without shell invocation.
-    Safe against shell injection metacharacters.
+    Execute command as an argument vector directly.
     """
     return subprocess.run(args, check=True, text=True, capture_output=True)

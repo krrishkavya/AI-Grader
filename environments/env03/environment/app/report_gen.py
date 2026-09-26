@@ -6,11 +6,14 @@ import subprocess
 import sys
 
 
+_CONVERTER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "md2html.py")
+
+
 def render_document(input_file: str, output_file: str) -> None:
     """Render a markdown document to HTML using the project converter."""
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
-    cmd = f"{sys.executable} md2html.py {input_file} {output_file}"
+    cmd = f"{sys.executable} {_CONVERTER} {input_file} {output_file}"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"Render failed: {result.stderr}")

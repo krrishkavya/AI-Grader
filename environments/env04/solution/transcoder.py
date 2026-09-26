@@ -4,20 +4,20 @@ import os
 import sys
 from utils.shell import run_cmd, run_argv
 
+_HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media_process.py")
+
 def transcode_file(input_file: str, output_file: str, scale: str | None = None) -> None:
     """
-    Safe transcoding implementation:
-    Applies resolution scaling directly without shell interpolation.
+    Safe transcoding implementation using argument list (run_argv).
     """
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
-    
-    with open(input_file, "r") as f_in:
-        content = f_in.read()
-
-    scale_header = f"SCALE:{scale}\n" if scale else ""
-    with open(output_file, "w") as f_out:
-        f_out.write(f"HEADER:TRANSCODED\n{scale_header}{content}")
+    cmd = [sys.executable, _HELPER, "transcode", input_file, output_file]
+    if scale:
+        cmd.extend(["--scale", scale])
+    result = run_argv(cmd)
+    if result.returncode != 0:
+        raise RuntimeError(f"Transcode failed: {result.stderr}")
 
 def get_media_info(media_file: str) -> str:
     if not os.path.exists(media_file):
@@ -28,24 +28,21 @@ def get_media_info(media_file: str) -> str:
 def extract_thumbnail(media_file: str, thumb_file: str) -> None:
     if not os.path.exists(media_file):
         raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
-    with open(thumb_file, "w") as f:
-        f.write(f"THUMBNAIL_FOR:{os.path.basename(media_file)}")
+    cmd = f"{sys.executable} {_HELPER} extract {media_file} {thumb_file}"
+    run_cmd(cmd)
 
 def main():
     parser = argparse.ArgumentParser(description="Media Transcoding Utility")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # transcode subcommand
     trans_p = subparsers.add_parser("transcode", help="Transcode media")
     trans_p.add_argument("input_file", help="Source media file")
     trans_p.add_argument("output_file", help="Target media file")
     trans_p.add_argument("--scale", dest="scale", default=None, help="Resolution scale (e.g. 1280:720)")
 
-    # info subcommand
     info_p = subparsers.add_parser("info", help="Get media info")
     info_p.add_argument("media_file", help="Target media file")
 
-    # extract subcommand
     ext_p = subparsers.add_parser("extract", help="Extract thumbnail")
     ext_p.add_argument("media_file", help="Source media file")
     ext_p.add_argument("thumb_file", help="Output thumbnail file")

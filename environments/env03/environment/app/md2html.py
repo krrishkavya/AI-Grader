@@ -40,7 +40,7 @@ def main():
     parser = argparse.ArgumentParser(description="Markdown to HTML converter")
     parser.add_argument("input_file", help="Source markdown file")
     parser.add_argument("output_file", help="Destination HTML file")
-    parser.add_argument("--title", default=None, help="Document title")
+    parser.add_argument("--title", nargs="*", default=None, help="Document title")
     args = parser.parse_args()
 
     if not os.path.exists(args.input_file):
@@ -49,7 +49,8 @@ def main():
     with open(args.input_file, "r") as f:
         md_text = f.read()
 
-    html = md_to_html(md_text, title=args.title)
+    title_val = " ".join(args.title) if isinstance(args.title, list) and args.title else (args.title if isinstance(args.title, str) else None)
+    html = md_to_html(md_text, title=title_val)
 
     with open(args.output_file, "w") as f:
         f.write(html)

@@ -13,17 +13,27 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _build_inventory_query(base: str, conditions: list, params: list) -> str:
+    """Builds an inventory query from base SQL and dynamic filter conditions."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
 def lookup_stock(sku: str, warehouse: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    sql = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
-    params = [sku]
+    base = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0"
+    conditions = []
+    params = []
+
+    conditions.append(f"sku = '{sku}'")
 
     if warehouse:
-        sql += " AND warehouse_id = ?"
+        conditions.append("warehouse_id = ?")
         params.append(warehouse)
 
+    sql = _build_inventory_query(base, conditions, params)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()

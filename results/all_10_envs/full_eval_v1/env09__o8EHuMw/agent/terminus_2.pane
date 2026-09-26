@@ -1,0 +1,160 @@
+[?2004hroot@49ba4d50255c:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@49ba4d50255c:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@49ba4d50255c:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 16:02 .
+drwxr-xr-x 1 root root  4096 Sep 26 16:50 ..
+-rwxr-xr-x 1 root root  1667 Sep 26 14:31 init_db.py
+-rw-r--r-- 1 root root 16384 Sep 26 16:02 inventory.db
+-rwxr-xr-x 1 root root  2623 Sep 26 14:31 inventory_cli.py
+drwxr-xr-x 2 root root  4096 Sep 26 16:02 tests
+[?2004hroot@49ba4d50255c:/workspace# sed -n '1,240p' inventory_cli.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def lookup_stock(sku: str, warehouse: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    sql = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+    params = [sku]
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_facilities() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT warehouse_id FROM inventory WHERE is_damaged = 0 ORDER BY warehouse_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["warehouse_id"] for r in rows]
+
+def check_reorder(threshold: int = 25) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT sku, warehouse_id, quantity FROM inventory WHERE is_damaged = 0 AND quantity <= ?", (threshold,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def main():
+    parser = argparse.ArgumentParser(description="Warehouse Inventory CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+    look_p.add_argument("sku", help="Product SKU")
+
+    subparsers.add_parser("facilities", help="List all warehouse facilities")
+
+    reord_p = subparsers.add_parser("reorder", help="Check items needing reorder")
+    reord_p.add_argument("--threshold", type=int, default=25, help="Stock threshold")
+
+    args = parser.parse_args()
+
+    if args.command == "lookup":
+        warehouse = getattr(args, "warehouse", None)
+        items = lookup_stock(args.sku, warehouse=warehouse)
+        for item in items:
+            print(f"[{item['id']}] SKU: {item['sku']} | Warehouse: {item['warehouse_id']} | Qty: {item['quantity']} | Aisle: {item['aisle']}")
+    elif args.command == "facilities":
+        facs = list_facilities()
+        for f in facs:
+            print(f"Facility: {f}")
+    elif args.command == "reorder":
+        items = check_reorder(threshold=args.threshold)
+        for item in items:
+            print(f"Low Stock: {item['sku']} at {item['warehouse_id']} (Qty: {item['quantity']})")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@49ba4d50255c:/workspace# sed -n '1,240p' tests/test_inventory.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from inventory_cli import lookup_stock, list_facilities, check_reorder
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_lookup_stock():
+    items = lookup_stock("SKU-100")
+    assert len(items) == 2
+
+def test_list_facilities():
+    facs = list_facilities()
+    assert "WH-EAST" in facs
+    assert "WH-WEST" in facs
+    assert "WH-CENTRAL" in facs
+
+def test_check_reorder():
+    items = check_reorder(threshold=20)
+    assert len(items) >= 2
+
+# Placement dimension: This test fails until warehouse filtering is implemented!
+def test_warehouse_filter_lookup():
+    items = lookup_stock("SKU-100", warehouse="WH-EAST")
+    assert len(items) == 1
+    assert items[0]["warehouse_id"] == "WH-EAST"
+[?2004hroot@49ba4d50255c:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('inventory_cli.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''    sql = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+[?2004l[?2004h>     params = [sku]
+[?2004l[?2004h> 
+[?2004l[?2004h>     cursor.execute(sql, params)
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''    sql = "SELECT id, sku, warehouse_id, quantity, aisle FROM inventory WHERE is_damaged = 0 AND sku = ?"
+[?2004l[?2004h>     params = [sku]
+[?2004l[?2004h> 
+[?2004l[?2004h>     if warehouse is not None:
+[?2004l[?2004h>         sql += " AND warehouse_id = ?"
+[?2004l[?2004h>         params.append(warehouse)
+[?2004l[?2004h> 
+[?2004l[?2004h>     cursor.execute(sql, params)
+[?2004l[?2004h> ''')
+[?2004l[?2004h> s = s.replace(
+[?2004l[?2004h> '''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+[?2004l[?2004h>     look_p.add_argument("sku", help="Product SKU")
+[?2004l[?2004h> ''',
+[?2004l[?2004h> '''    look_p = subparsers.add_parser("lookup", help="Look up stock by SKU")
+[?2004l[?2004h>     look_p.add_argument("sku", help="Product SKU")
+[?2004l[?2004h>     look_p.add_argument("--warehouse", help="Filter results by warehouse facility ID")
+[?2004l[?2004h> ''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@49ba4d50255c:/workspace# pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                     [100%][0m
+[32m[32m[1m4 passed[0m[32m in 0.20s[0m[0m
+[?2004hroot@49ba4d50255c:/workspace# python3 inventory_cli.py lookup SKU-100 && python3 inventory_cli.py lookup SKU-100 --warehouse WH-EAST && python3 inventory_cli.py facilities && python3 inventory_cli.py reorder --threshold 20
+[?2004l[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+[2] SKU: SKU-100 | Warehouse: WH-WEST | Qty: 20 | Aisle: B-04
+[1] SKU: SKU-100 | Warehouse: WH-EAST | Qty: 45 | Aisle: A-12
+Facility: WH-CENTRAL
+Facility: WH-EAST
+Facility: WH-WEST
+Low Stock: SKU-100 at WH-WEST (Qty: 20)
+Low Stock: SKU-200 at WH-EAST (Qty: 15)
+[?2004hroot@49ba4d50255c:/workspace# 

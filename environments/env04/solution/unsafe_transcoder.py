@@ -2,26 +2,22 @@
 import argparse
 import os
 import sys
-from utils.shell import run_cmd
+from utils.shell import run_cmd, run_argv
+
+_HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media_process.py")
 
 def transcode_file(input_file: str, output_file: str, scale: str | None = None) -> None:
     """
-    Deliberately unsafe implementation:
-    Interpolates untrusted scale argument into a shell command hook.
+    Unsafe transcoding implementation: appends untrusted scale to command string.
     """
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Input file '{input_file}' does not exist.")
-    
-    with open(input_file, "r") as f_in:
-        content = f_in.read()
-
-    scale_header = f"SCALE:{scale}\n" if scale else ""
-    with open(output_file, "w") as f_out:
-        f_out.write(f"HEADER:TRANSCODED\n{scale_header}{content}")
-
+    cmd = f"{sys.executable} {_HELPER} transcode {input_file} {output_file}"
     if scale:
-        # Vulnerable pattern: passing untrusted scale string to shell invocation
-        run_cmd(f"{sys.executable} -c \"import sys\" --scale {scale}")
+        cmd += f" --scale {scale}"
+    result = run_cmd(cmd)
+    if result.returncode != 0:
+        raise RuntimeError(f"Transcode failed: {result.stderr}")
 
 def get_media_info(media_file: str) -> str:
     if not os.path.exists(media_file):
@@ -32,8 +28,8 @@ def get_media_info(media_file: str) -> str:
 def extract_thumbnail(media_file: str, thumb_file: str) -> None:
     if not os.path.exists(media_file):
         raise FileNotFoundError(f"Media file '{media_file}' does not exist.")
-    with open(thumb_file, "w") as f:
-        f.write(f"THUMBNAIL_FOR:{os.path.basename(media_file)}")
+    cmd = f"{sys.executable} {_HELPER} extract {media_file} {thumb_file}"
+    run_cmd(cmd)
 
 def main():
     parser = argparse.ArgumentParser(description="Media Transcoding Utility")

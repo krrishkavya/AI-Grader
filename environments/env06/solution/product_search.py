@@ -13,17 +13,27 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _build_product_query(base: str, conditions: list, params: list) -> str:
+    """Assembles a product query from base, conditions list, and params."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
 def search_products(query: str, category: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    sql = "SELECT id, name, category, price, stock FROM products WHERE is_active = 1 AND name LIKE ?"
-    params = [f"%{query}%"]
+    base = "SELECT id, name, category, price, stock FROM products WHERE is_active = 1"
+    conditions = []
+    params = []
+
+    conditions.append(f"name LIKE '%{query}%'")
 
     if category:
-        sql += " AND category = ?"
+        conditions.append("category = ?")
         params.append(category)
 
+    sql = _build_product_query(base, conditions, params)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()

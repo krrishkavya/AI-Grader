@@ -1,0 +1,206 @@
+[?2004hroot@5958a5a90499:/workspace# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@5958a5a90499:/workspace# clear
+[?2004l[H[J[3J[?2004hroot@5958a5a90499:/workspace# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Sep 26 16:03 .
+drwxr-xr-x 1 root root  4096 Sep 26 16:04 ..
+-rwxr-xr-x 1 root root  1949 Sep 26 14:35 init_db.py
+-rw-r--r-- 1 root root 16384 Sep 26 16:03 notifications.db
+-rwxr-xr-x 1 root root  2446 Sep 26 14:35 notify_filter.py
+drwxr-xr-x 2 root root  4096 Sep 26 16:03 tests
+[?2004hroot@5958a5a90499:/workspace# sed -n '1,240p' notify_filter.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def filter_messages(recipient: str, channel: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    sql = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE delivered = 1 AND recipient = ?"
+    params = [recipient]
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_channels() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT channel FROM notifications WHERE delivered = 1 ORDER BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["channel"] for r in rows]
+
+def channel_stats() -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel, count(*) as count FROM notifications WHERE delivered = 1 GROUP BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return {r["channel"]: r["count"] for r in rows}
+
+def main():
+    parser = argparse.ArgumentParser(description="Notification Dispatch Filter CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")
+    msg_p.add_argument("recipient", help="Recipient ID")
+
+    subparsers.add_parser("channels", help="List active channels")
+    subparsers.add_parser("stats", help="Get channel delivery stats")
+
+    args = parser.parse_args()
+
+    if args.command == "messages":
+        channel = getattr(args, "channel", None)
+        messages = filter_messages(args.recipient, channel=channel)
+        for m in messages:
+            print(f"[{m['id']}] To: {m['recipient']} | Channel: {m['channel']} | Message: {m['message']} | Date: {m['created_at']}")
+    elif args.command == "channels":
+        chans = list_channels()
+        for c in chans:
+            print(f"Channel: {c}")
+    elif args.command == "stats":
+        stats = channel_stats()
+        for c, count in stats.items():
+            print(f"{c}: {count}")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@5958a5a90499:/workspace# sed -n '1,260p' tests/test_notify.py
+[?2004limport os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from init_db import init_database
+from notify_filter import filter_messages, list_channels, channel_stats
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_database()
+
+def test_filter_messages():
+    messages = filter_messages("user101")
+    assert len(messages) == 3
+
+def test_list_channels():
+    chans = list_channels()
+    assert "email" in chans
+    assert "sms" in chans
+    assert "push" in chans
+
+def test_channel_stats():
+    stats = channel_stats()
+    assert stats["email"] >= 2
+    assert stats["sms"] >= 2
+[?2004hroot@5958a5a90499:/workspace# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('notify_filter.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('''    sql = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE delivered = 1 AND recipient = ?"\n    params = [recipient]\n\n    cursor.execute(sql, params)\n''', '''    sql = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE delivered = 1 AND recipient = ?"\n    params = [recipient]\n\n    if channel is not None:\n        sql += " AND channel = ?"\n        params.append(channel)\n\n    cursor.execute(sql, params)\n''')
+[?2004l[?2004h> s = s.replace('''    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")\n    msg_p.add_argument("recipient", help="Recipient ID")\n''', '''    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")\n    msg_p.add_argument("recipient", help="Recipient ID")\n    msg_p.add_argument("--channel", help="Filter messages by exact communication channel")\n''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@5958a5a90499:/workspace# sed -n '1,120p' notify_filter.py
+[?2004l#!/usr/bin/env python3
+import argparse
+import os
+import sqlite3
+import sys
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+
+def get_connection():
+    if not os.path.exists(DB_FILE):
+        raise FileNotFoundError(f"Database file not found: {DB_FILE}")
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def filter_messages(recipient: str, channel: str | None = None) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    sql = "SELECT id, recipient, channel, message, created_at FROM notifications WHERE delivered = 1 AND recipient = ?"
+    params = [recipient]
+
+    if channel is not None:
+        sql += " AND channel = ?"
+        params.append(channel)
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def list_channels() -> list[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT channel FROM notifications WHERE delivered = 1 ORDER BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return [r["channel"] for r in rows]
+
+def channel_stats() -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel, count(*) as count FROM notifications WHERE delivered = 1 GROUP BY channel")
+    rows = cursor.fetchall()
+    conn.close()
+    return {r["channel"]: r["count"] for r in rows}
+
+def main():
+    parser = argparse.ArgumentParser(description="Notification Dispatch Filter CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    msg_p = subparsers.add_parser("messages", help="Query messages by recipient")
+    msg_p.add_argument("recipient", help="Recipient ID")
+    msg_p.add_argument("--channel", help="Filter messages by exact communication channel")
+
+    subparsers.add_parser("channels", help="List active channels")
+    subparsers.add_parser("stats", help="Get channel delivery stats")
+
+    args = parser.parse_args()
+
+    if args.command == "messages":
+        channel = getattr(args, "channel", None)
+        messages = filter_messages(args.recipient, channel=channel)
+        for m in messages:
+            print(f"[{m['id']}] To: {m['recipient']} | Channel: {m['channel']} | Message: {m['message']} | Date: {m['created_at']}")
+    elif args.command == "channels":
+        chans = list_channels()
+        for c in chans:
+            print(f"Channel: {c}")
+    elif args.command == "stats":
+        stats = channel_stats()
+        for c, count in stats.items():
+            print(f"{c}: {count}")
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@5958a5a90499:/workspace# pytest -q
+[?2004l[32m.[0m[32m.[0m[32m.[0m[32m                                                                                                                                                      [100%][0m
+[32m[32m[1m3 passed[0m[32m in 0.12s[0m[0m
+[?2004hroot@5958a5a90499:/workspace# python3 notify_filter.py messages user101 --channel email
+[?2004l[1] To: user101 | Channel: email | Message: Your monthly statement is ready | Date: 2026-09-20 09:00:00
+[?2004hroot@5958a5a90499:/workspace# python3 notify_filter.py messages user101
+[?2004l[1] To: user101 | Channel: email | Message: Your monthly statement is ready | Date: 2026-09-20 09:00:00
+[2] To: user101 | Channel: sms | Message: Your verification code is 849201 | Date: 2026-09-21 14:30:00
+[3] To: user101 | Channel: push | Message: New login detected from Chrome | Date: 2026-09-22 18:15:00
+[?2004hroot@5958a5a90499:/workspace# 

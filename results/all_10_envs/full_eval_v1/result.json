@@ -1,42 +1,102 @@
 {
     "id": "40731915-f1b7-4817-bfc6-4115a01ab9aa",
     "started_at": "2026-09-26T21:18:16.016008",
-    "updated_at": "2026-09-26T15:55:36.205047Z",
-    "finished_at": null,
+    "updated_at": "2026-09-26T22:51:21.233923",
+    "finished_at": "2026-09-26T22:51:21.233923",
     "n_total_trials": 60,
     "stats": {
-        "n_completed_trials": 4,
+        "n_completed_trials": 60,
         "n_errored_trials": 0,
-        "n_running_trials": 1,
-        "n_pending_trials": 55,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "terminus-2__gpt-5.5__environments": {
-                "n_trials": 4,
+                "n_trials": 60,
                 "n_errors": 0,
                 "metrics": [
                     {
                         "mean": 1.0
                     }
                 ],
-                "pass_at_k": {},
+                "pass_at_k": {
+                    "2": 1.0,
+                    "4": 1.0,
+                    "5": 1.0
+                },
                 "reward_stats": {
                     "reward": {
                         "1.0": [
                             "env01__Uxcvgoq",
                             "env02__QKsrbCD",
                             "env03__2JrqGxz",
-                            "env04__jroZyjx"
+                            "env04__jroZyjx",
+                            "env05__YnnJCbJ",
+                            "env06__L3fWAUW",
+                            "env07__Xgb2fbY",
+                            "env08__mMwifbh",
+                            "env09__7FWnjiC",
+                            "env10__XKCcDJV",
+                            "env01__4vgNeoA",
+                            "env02__qTZ5LFZ",
+                            "env03__NqfK3Ts",
+                            "env04__8ymDbq6",
+                            "env05__uUhh4cD",
+                            "env06__pAMbWTa",
+                            "env07__5iXNVUd",
+                            "env08__zi8TAPC",
+                            "env09__QzAgCij",
+                            "env10__x46sPBp",
+                            "env01__uvGbG7u",
+                            "env02__QDTLopJ",
+                            "env03__nBK2eRC",
+                            "env04__NXai3C6",
+                            "env05__ZBgQrnm",
+                            "env06__4AdPLHB",
+                            "env07__CsgdGdb",
+                            "env08__NoHr88G",
+                            "env09__4MwNGU9",
+                            "env10__i4J6wpe",
+                            "env01__SUtu5Bk",
+                            "env02__yrJEMNN",
+                            "env03__GunqMa8",
+                            "env04__iXvDqcE",
+                            "env05__nkEeEab",
+                            "env06__jmWR43j",
+                            "env07__m9DPbMo",
+                            "env08__thiQgR8",
+                            "env09__o8EHuMw",
+                            "env10__b4NAqwd",
+                            "env01__XK7ufDL",
+                            "env02__Zr9Q3FX",
+                            "env03__gKnCCsh",
+                            "env04__bP5mMeq",
+                            "env05__cy6QPjy",
+                            "env06__Edc4TFg",
+                            "env07__8PdoSkc",
+                            "env08__BdhYoP2",
+                            "env09__TXEMpZ9",
+                            "env10__LUDnQQa",
+                            "env01__sVhGBvf",
+                            "env02__bALhPfq",
+                            "env03__kqFZDHY",
+                            "env04__YriXR6X",
+                            "env05__M2XRXrC",
+                            "env06__JL2AUGc",
+                            "env07__EFq6hQa",
+                            "env08__UUx96jt",
+                            "env09__V9igEKz",
+                            "env10__Fgyp2AG"
                         ]
                     }
                 },
                 "exception_stats": {}
             }
         },
-        "n_input_tokens": 105265,
-        "n_cache_tokens": 57856,
-        "n_output_tokens": 17280,
-        "cost_usd": 0.784373
+        "n_input_tokens": 1264727,
+        "n_cache_tokens": 686592,
+        "n_output_tokens": 198231,
+        "cost_usd": 9.180900999999997
     }
 }

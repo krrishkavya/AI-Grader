@@ -13,13 +13,24 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _build_event_query(base: str, conditions: list, params: list) -> str:
+    """Builds an audit query by joining conditions onto the base clause."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
 def query_events(action_kw: str, user: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    sql = "SELECT id, user, action, ip_address, severity, timestamp FROM audit_logs WHERE action LIKE ?"
-    params = [f"%{action_kw}%"]
+    base = "SELECT id, user, action, ip_address, severity, timestamp FROM audit_logs WHERE 1=1"
+    conditions = []
+    params = []
 
+    # Existing pattern: internal filter values are interpolated directly into conditions
+    conditions.append(f"action LIKE '%{action_kw}%'")
+
+    sql = _build_event_query(base, conditions, params)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()

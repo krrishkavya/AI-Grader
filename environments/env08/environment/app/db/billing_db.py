@@ -8,13 +8,24 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _build_invoice_query(base: str, conditions: list, params: list) -> str:
+    """Builds an invoice query by joining active conditions onto the base clause."""
+    if conditions:
+        return base + " AND " + " AND ".join(conditions)
+    return base
+
 def fetch_invoices(account_id: str, status: str | None = None) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    sql = "SELECT id, account_id, amount, status, due_date FROM invoices WHERE is_confidential = 0 AND account_id = ?"
-    params = [account_id]
+    base = "SELECT id, account_id, amount, status, due_date FROM invoices WHERE is_confidential = 0"
+    conditions = []
+    params = []
 
+    # Existing pattern: trusted internal values go directly into conditions via f-string
+    conditions.append(f"account_id = '{account_id}'")
+
+    sql = _build_invoice_query(base, conditions, params)
     cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()
